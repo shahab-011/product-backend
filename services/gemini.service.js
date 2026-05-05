@@ -9,9 +9,18 @@ const safeJsonParse = (text) => {
   return JSON.parse(cleaned);
 };
 
+// Cleans PDF.js "&X&" character-level encoding artifacts (e.g. "&D&e&l&h&i&" → "Delhi")
+function cleanExtractedText(raw) {
+  if (!raw) return '';
+  return raw
+    .replace(/&([^&\s]{1})&/g, '$1')
+    .replace(/ {2,}/g, ' ')
+    .trim();
+}
+
 exports.analyzeDocument = async (text, docType = 'legal document') => {
   try {
-    const context = getFirstChunks(text, 3).join('\n\n');
+    const context = getFirstChunks(cleanExtractedText(text), 3).join('\n\n');
 
     const prompt = `You are an expert Indian legal AI assistant. Analyze the following ${docType} and return ONLY a valid JSON object. No markdown. No backticks. No explanation. Start your response with { and end with }.
 
@@ -117,7 +126,7 @@ ${context}`;
 
 exports.askQuestion = async (question, documentText, chatHistory = []) => {
   try {
-    const context = prepareContext(documentText, question);
+    const context = prepareContext(cleanExtractedText(documentText), question);
 
     const historyStr = chatHistory
       .slice(-6)
@@ -148,8 +157,8 @@ User question: ${question}`;
 
 exports.compareDocuments = async (text1, text2) => {
   try {
-    const snippet1 = text1.slice(0, 3000);
-    const snippet2 = text2.slice(0, 3000);
+    const snippet1 = cleanExtractedText(text1).slice(0, 3000);
+    const snippet2 = cleanExtractedText(text2).slice(0, 3000);
 
     const prompt = `You are an expert legal AI. Compare these two legal documents and return ONLY a valid JSON object. No markdown. No backticks. No explanation. Start your response with { and end with }.
 
