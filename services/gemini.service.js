@@ -96,9 +96,10 @@ ${context}`;
 
     const result = await model.generateContent(prompt);
     const raw = result.response.text();
+    console.log('Gemini raw response (first 300):', raw?.slice(0, 300));
     return safeJsonParse(raw);
   } catch (err) {
-    console.error('analyzeDocument error:', err.message);
+    console.error('analyzeDocument error FULL:', err.message, err.status, err.errorDetails);
     return {
       summary: 'Analysis failed',
       detectedDocType: null,

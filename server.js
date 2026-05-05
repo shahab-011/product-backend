@@ -156,6 +156,20 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, status: 'ok', uptime: process.uptime() });
 });
 
+// Gemini connectivity test — safe to call in any env
+app.get('/api/test-gemini', async (req, res) => {
+  try {
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const result = await model.generateContent('Say hello in one word.');
+    const text = result.response.text();
+    return res.json({ success: true, response: text, key_set: !!process.env.GEMINI_API_KEY });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message, status: err.status });
+  }
+});
+
 // Dev-only: trigger the nightly lifecycle scan immediately for testing
 if (process.env.NODE_ENV !== 'production') {
   app.post('/api/dev/run-scan', async (req, res) => {
