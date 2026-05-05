@@ -50,7 +50,6 @@ const AnalysisSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-AnalysisSchema.index({ documentId: 1 }, { unique: true });
 AnalysisSchema.index({ userId: 1 });
 
 module.exports = mongoose.model('Analysis', AnalysisSchema);

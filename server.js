@@ -21,7 +21,10 @@ const server = http.createServer(app);
 const corsOrigin =
   process.env.NODE_ENV === 'development'
     ? /^http:\/\/localhost(:\d+)?$/
-    : process.env.CLIENT_URL;
+    : [
+        (process.env.CLIENT_URL || '').replace(/\/$/, ''),
+        'https://nayaya-frontend.netlify.app',
+      ].filter(Boolean);
 
 const io = new Server(server, {
   cors: { origin: corsOrigin, methods: ['GET', 'POST'], credentials: true },

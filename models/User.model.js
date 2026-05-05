@@ -16,7 +16,6 @@ const UserSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ createdAt: 1 });
 
 UserSchema.pre('save', async function () {
