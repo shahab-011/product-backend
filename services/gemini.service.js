@@ -12,10 +12,12 @@ const safeJsonParse = (text) => {
 // Cleans PDF.js "&X&" character-level encoding artifacts (e.g. "&D&e&l&h&i&" → "Delhi")
 function cleanExtractedText(raw) {
   if (!raw) return '';
-  return raw
-    .replace(/&([^&\s]{1})&/g, '$1')
-    .replace(/ {2,}/g, ' ')
-    .trim();
+  let text = raw
+    .replace(/&([^&\s])&/g, '$1')   // &X& → X
+    .replace(/&/g, '');              // remove orphaned & markers
+  // Collapse spaced-out single chars from encoding: "D w a r k a" → "Dwarka" (3+ chars)
+  text = text.replace(/\b(?:[A-Za-z\d] ){2,}[A-Za-z\d]\b/g, (m) => m.replace(/ /g, ''));
+  return text.replace(/ {2,}/g, ' ').trim();
 }
 
 exports.analyzeDocument = async (text, docType = 'legal document') => {
