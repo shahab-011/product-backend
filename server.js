@@ -161,7 +161,7 @@ app.get('/api/test-gemini', async (req, res) => {
   try {
     const { GoogleGenerativeAI } = require('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
     const result = await model.generateContent('Say hello in one word.');
     const text = result.response.text();
     return res.json({ success: true, response: text, key_set: !!process.env.GEMINI_API_KEY });
