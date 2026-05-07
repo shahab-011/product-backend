@@ -13,6 +13,7 @@ const userPayload = (user) => ({
   email:     user.email,
   role:      user.role,
   plan:      user.plan,
+  avatarUrl: user.avatarUrl || null,
   createdAt: user.createdAt,
   lastLogin: user.lastLogin,
 });
@@ -83,16 +84,26 @@ exports.getMe = async (req, res, next) => {
   }
 };
 
+const VALID_AVATAR_IDS = new Set(['av0','av1','av2','av3','av4','av5']);
+
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name } = req.body;
-    if (!name || !name.trim()) return sendError(res, 'Name is required', 400);
-    if (name.trim().length > 100) return sendError(res, 'Name too long', 400);
+    const { name, avatarUrl } = req.body;
+    const updates = {};
+
+    if (name !== undefined) {
+      if (!name || !name.trim()) return sendError(res, 'Name is required', 400);
+      if (name.trim().length > 100) return sendError(res, 'Name too long', 400);
+      updates.name = name.trim();
+    }
+    if (avatarUrl !== undefined) {
+      if (!VALID_AVATAR_IDS.has(avatarUrl)) return sendError(res, 'Invalid avatar', 400);
+      updates.avatarUrl = avatarUrl;
+    }
+    if (Object.keys(updates).length === 0) return sendError(res, 'Nothing to update', 400);
 
     const user = await User.findByIdAndUpdate(
-      req.user._id,
-      { name: name.trim() },
-      { new: true, runValidators: true }
+      req.user._id, updates, { new: true, runValidators: true }
     );
     return sendSuccess(res, { user: userPayload(user) }, 'Profile updated');
   } catch (err) {
