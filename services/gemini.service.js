@@ -152,11 +152,12 @@ The JSON must follow this exact structure:
 Document Text:
 ${context}`;
 
+    console.log('analyzeDocument: calling Groq, GROQ_API_KEY set:', !!process.env.GROQ_API_KEY);
     const raw = await callGroq(prompt, 0.1, 8192);
-    console.log('analyzeDocument raw (first 300):', raw?.slice(0, 300));
+    console.log('analyzeDocument raw (first 500):', raw?.slice(0, 500));
     return safeJsonParse(raw);
   } catch (err) {
-    console.error('analyzeDocument error:', err.message);
+    console.error('analyzeDocument FULL ERROR:', err.message, err.status, err.error);
     return {
       summary: 'Analysis failed',
       detectedDocType: null,
