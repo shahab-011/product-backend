@@ -85,6 +85,13 @@ exports.getMe = async (req, res, next) => {
 };
 
 const VALID_AVATAR_IDS = new Set(['av0','av1','av2','av3','av4','av5']);
+const MAX_AVATAR_BYTES = 400_000; // ~300 KB base64 image
+
+function isValidAvatarValue(val) {
+  if (VALID_AVATAR_IDS.has(val)) return true;
+  if (typeof val === 'string' && val.startsWith('data:image/') && val.length <= MAX_AVATAR_BYTES) return true;
+  return false;
+}
 
 exports.updateProfile = async (req, res, next) => {
   try {
@@ -97,7 +104,7 @@ exports.updateProfile = async (req, res, next) => {
       updates.name = name.trim();
     }
     if (avatarUrl !== undefined) {
-      if (!VALID_AVATAR_IDS.has(avatarUrl)) return sendError(res, 'Invalid avatar', 400);
+      if (!isValidAvatarValue(avatarUrl)) return sendError(res, 'Invalid avatar or image too large (max ~300 KB)', 400);
       updates.avatarUrl = avatarUrl;
     }
     if (Object.keys(updates).length === 0) return sendError(res, 'Nothing to update', 400);
