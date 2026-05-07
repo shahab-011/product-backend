@@ -1,17 +1,20 @@
-const User = require('../models/User.model');
+const User     = require('../models/User.model');
+const Document = require('../models/Document.model');
+const Analysis = require('../models/Analysis.model');
 const { sendSuccess, sendError } = require('../utils/response');
 
 const MIN_PASSWORD_LENGTH = 6;
 
-// Clients may self-select 'user' or 'lawyer' — 'admin' is never accepted from the wire
 const ALLOWED_REGISTER_ROLES = new Set(['user', 'lawyer']);
 
 const userPayload = (user) => ({
-  id:    user._id,
-  name:  user.name,
-  email: user.email,
-  role:  user.role,
-  plan:  user.plan,
+  id:        user._id,
+  name:      user.name,
+  email:     user.email,
+  role:      user.role,
+  plan:      user.plan,
+  createdAt: user.createdAt,
+  lastLogin: user.lastLogin,
 });
 
 exports.register = async (req, res, next) => {
@@ -75,6 +78,59 @@ exports.login = async (req, res, next) => {
 exports.getMe = async (req, res, next) => {
   try {
     return sendSuccess(res, { user: userPayload(req.user) }, 'User fetched');
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) return sendError(res, 'Name is required', 400);
+    if (name.trim().length > 100) return sendError(res, 'Name too long', 400);
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { name: name.trim() },
+      { new: true, runValidators: true }
+    );
+    return sendSuccess(res, { user: userPayload(user) }, 'Profile updated');
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getUserStats = async (req, res, next) => {
+  try {
+    const uid = req.user._id;
+    const [docStats, analysisCount] = await Promise.all([
+      Document.aggregate([
+        { $match: { userId: uid } },
+        { $group: { _id: null, total: { $sum: 1 }, risks: { $sum: '$riskCount' } } },
+      ]),
+      Analysis.countDocuments({ userId: uid }),
+    ]);
+    return sendSuccess(res, {
+      totalDocuments: docStats[0]?.total  ?? 0,
+      totalRisks:     docStats[0]?.risks  ?? 0,
+      totalAnalyses:  analysisCount,
+      memberSince:    req.user.createdAt,
+      lastLogin:      req.user.lastLogin,
+    }, 'Stats fetched');
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.deleteAccount = async (req, res, next) => {
+  try {
+    const uid = req.user._id;
+    await Promise.all([
+      Document.deleteMany({ userId: uid }),
+      Analysis.deleteMany({ userId: uid }),
+    ]);
+    await User.findByIdAndDelete(uid);
+    return sendSuccess(res, null, 'Account deleted');
   } catch (err) {
     next(err);
   }
