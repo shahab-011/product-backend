@@ -53,7 +53,7 @@ async function callGroq(prompt, temperature = 0.2, maxTokens = 4096) {
 
 exports.analyzeDocument = async (text, docType = 'legal document') => {
   try {
-    const context = getFirstChunks(cleanExtractedText(text), 6).join('\n\n');
+    const context = getFirstChunks(cleanExtractedText(text), 3).join('\n\n');
 
     const prompt = `You are an expert Indian legal AI assistant. Analyze the following ${docType} and return ONLY a valid JSON object. No markdown. No backticks. No explanation. Start your response with { and end with }.
 
@@ -153,7 +153,7 @@ Document Text:
 ${context}`;
 
     console.log('analyzeDocument: calling Groq, GROQ_API_KEY set:', !!process.env.GROQ_API_KEY);
-    const raw = await callGroq(prompt, 0.1, 8192);
+    const raw = await callGroq(prompt, 0.1, 4096);
     console.log('analyzeDocument raw (first 500):', raw?.slice(0, 500));
     return safeJsonParse(raw);
   } catch (err) {
