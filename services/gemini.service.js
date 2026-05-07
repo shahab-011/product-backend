@@ -6,7 +6,10 @@ const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
 const safeJsonParse = (text) => {
   const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
-  return JSON.parse(cleaned);
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('No JSON object found in AI response');
+  return JSON.parse(cleaned.slice(start, end + 1));
 };
 
 // Cleans PDF.js "&X&" character-level encoding artifacts (e.g. "&D&e&l&h&i&" → "Delhi")
@@ -162,7 +165,7 @@ exports.compareDocuments = async (text1, text2) => {
     const compareGenAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const compareModel = compareGenAI.getGenerativeModel({
       model: 'gemini-2.5-flash',
-      generationConfig: { temperature: 0.2, maxOutputTokens: 3000 },
+      generationConfig: { temperature: 0.2 },
     });
 
     const snippet1 = cleanExtractedText(text1).slice(0, 3000);

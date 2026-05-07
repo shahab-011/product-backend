@@ -39,6 +39,10 @@ exports.compare = async (req, res, next) => {
 
     const result = await compareDocuments(docA.extractedText, docB.extractedText);
 
+    if (result.error) {
+      return sendError(res, result.errorMessage || 'AI comparison failed. Please try again.', 500);
+    }
+
     const comparison = await Comparison.create({
       userId:        req.user._id,
       docAId,
