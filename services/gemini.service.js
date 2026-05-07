@@ -33,15 +33,34 @@ async function callGroq(prompt, temperature = 0.2, maxTokens = 4096) {
 
 exports.analyzeDocument = async (text, docType = 'legal document') => {
   try {
-    const context = getFirstChunks(cleanExtractedText(text), 3).join('\n\n');
+    const context = getFirstChunks(cleanExtractedText(text), 6).join('\n\n');
 
     const prompt = `You are an expert Indian legal AI assistant. Analyze the following ${docType} and return ONLY a valid JSON object. No markdown. No backticks. No explanation. Start your response with { and end with }.
 
-SUMMARY INSTRUCTION: Write exactly 2-3 sentences in simple plain English that a non-lawyer Indian person can understand. Follow this structure:
-  Sentence 1 — What the document is: parties involved, purpose, and duration/scope.
-  Sentence 2 — Key practical terms: payment amounts (use ₹ symbol), timelines, or main obligations.
-  Sentence 3 — Start with "Key concern:" followed by the single most important risk or clause the user must know about.
-If a sentence's information is not available in the document, skip that sentence.
+SUMMARY INSTRUCTION: Write a comprehensive plain-English explanation of the entire document so that a non-lawyer Indian person can fully understand it without reading the original. This must be detailed and thorough — do NOT write just 2-3 sentences. Cover every important aspect of the document.
+
+Structure your summary as a flowing explanation (NOT bullet points) with the following sections, each starting on a new line with a heading in ALL CAPS followed by a colon:
+
+WHAT THIS DOCUMENT IS: Identify the document type, all parties involved (full names and roles), the purpose of the agreement, and the overall duration or scope.
+
+KEY TERMS AND OBLIGATIONS: Explain every major obligation each party must fulfil. Be specific — include exact amounts (use ₹ symbol), deadlines, deliverables, service descriptions, work scope, timelines, payment schedules, and any performance requirements. If any term uses legal jargon, replace it with everyday words.
+
+PAYMENT AND FINANCIAL TERMS: Explain all payment amounts, when they are due, how they are calculated, what happens if payment is late, and any penalties or interest clauses. If no payment terms exist, state that.
+
+IMPORTANT RIGHTS AND RESTRICTIONS: Explain what each party is allowed and not allowed to do under this agreement — non-compete clauses, confidentiality obligations, intellectual property ownership, usage rights, and any restrictions on the parties' behaviour.
+
+HOW THE AGREEMENT ENDS: Explain all termination conditions — who can end the agreement, under what circumstances, how much notice is required, and what happens to obligations after termination.
+
+DISPUTE RESOLUTION AND LEGAL TERMS: Explain how disputes are handled (arbitration, court, mediation), which courts or laws apply, and which state or jurisdiction governs the agreement.
+
+KEY CONCERNS: List the top 2-3 most important risks, unusual clauses, or things the user absolutely must know before signing. Start each concern with "⚠" and explain clearly why it matters.
+
+Rules:
+- Zero legal jargon. Replace every legal term with plain everyday language.
+- Use "you" for the user's side and "the other party" or their actual name for the other side.
+- Be specific with numbers, dates, amounts — do not generalise.
+- If a section's information is not in the document, write "Not specified in this document."
+- The total summary should be thorough enough that someone could understand the entire document just by reading your summary.
 
 CLAUSES INSTRUCTION: Extract every significant clause from the document. For each clause:
   - type: Use the full standard legal name (e.g. "Non-Compete Clause", "Payment Terms", "Termination Clause", "Force Majeure", "Confidentiality Clause", "Indemnity Clause", "Governing Law", "Dispute Resolution").
@@ -86,7 +105,7 @@ For each risk:
 
 The JSON must follow this exact structure:
 {
-  "summary": "2-3 sentence plain English explanation per the SUMMARY INSTRUCTION above",
+  "summary": "Comprehensive multi-section plain English explanation per the SUMMARY INSTRUCTION above — cover all parties, obligations, payments, rights, termination, disputes, and key concerns",
   "detectedDocType": "Exact type from this list: Contract | NDA | MoU | Rent Agreement | Offer Letter | Will | Property Deed | Partnership Deed | Freelance Agreement | Vendor Agreement | Service Agreement | Consultancy Agreement",
   "detectedJurisdiction": "Specific Indian state name (e.g. Maharashtra, Karnataka, Delhi) or 'India' for central law or 'Not specified'",
   "healthScore": <number 0-100>,
@@ -116,7 +135,7 @@ The JSON must follow this exact structure:
 Document Text:
 ${context}`;
 
-    const raw = await callGroq(prompt, 0.1, 4096);
+    const raw = await callGroq(prompt, 0.1, 8192);
     console.log('analyzeDocument raw (first 300):', raw?.slice(0, 300));
     return safeJsonParse(raw);
   } catch (err) {
