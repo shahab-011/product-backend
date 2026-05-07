@@ -1,25 +1,37 @@
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
 const { protect, authorize } = require('../middleware/auth.middleware');
 const {
   getDashboard,
-  getClients,
+  sendLinkRequest, getLinkedClients, getClientDocuments, unlinkClient,
+  getLinkRequests, acceptLinkRequest, rejectLinkRequest,
+  shareDocument, unshareDocument,
   getCases, getCase, createCase, updateCase, deleteCase,
+  getClients,
 } = require('../controllers/lawyer.controller');
 
-// All lawyer routes require a valid JWT AND the 'lawyer' or 'admin' role
-router.use(protect, authorize('lawyer', 'admin'));
-
-router.get('/dashboard',   getDashboard);
-router.get('/clients',     getClients);
+/* ── Lawyer-only routes ──────────────────────────────────────────────── */
+router.get('/dashboard',                     protect, authorize('lawyer', 'admin'), getDashboard);
+router.post('/link-request',                 protect, authorize('lawyer', 'admin'), sendLinkRequest);
+router.get('/linked-clients',                protect, authorize('lawyer', 'admin'), getLinkedClients);
+router.get('/clients',                       protect, authorize('lawyer', 'admin'), getClients);
+router.get('/clients/:clientId/documents',   protect, authorize('lawyer', 'admin'), getClientDocuments);
+router.patch('/links/:linkId/unlink',        protect, authorize('lawyer', 'admin'), unlinkClient);
 
 router.route('/cases')
-  .get(getCases)
-  .post(createCase);
+  .get(protect, authorize('lawyer', 'admin'), getCases)
+  .post(protect, authorize('lawyer', 'admin'), createCase);
 
 router.route('/cases/:id')
-  .get(getCase)
-  .put(updateCase)
-  .delete(deleteCase);
+  .get(protect, authorize('lawyer', 'admin'), getCase)
+  .put(protect, authorize('lawyer', 'admin'), updateCase)
+  .delete(protect, authorize('lawyer', 'admin'), deleteCase);
+
+/* ── Client (user) routes — any authenticated user ───────────────────── */
+router.get('/link-requests',                         protect, getLinkRequests);
+router.patch('/link-requests/:linkId/accept',        protect, acceptLinkRequest);
+router.patch('/link-requests/:linkId/reject',        protect, rejectLinkRequest);
+router.post('/share-document',                       protect, shareDocument);
+router.post('/unshare-document',                     protect, unshareDocument);
 
 module.exports = router;
