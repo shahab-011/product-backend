@@ -37,30 +37,27 @@ exports.analyzeDocument = async (text, docType = 'legal document') => {
 
     const prompt = `You are an expert Indian legal AI assistant. Analyze the following ${docType} and return ONLY a valid JSON object. No markdown. No backticks. No explanation. Start your response with { and end with }.
 
-SUMMARY INSTRUCTION: Write a comprehensive plain-English explanation of the entire document so that a non-lawyer Indian person can fully understand it without reading the original. This must be detailed and thorough — do NOT write just 2-3 sentences. Cover every important aspect of the document.
+SUMMARY INSTRUCTION: Write a comprehensive plain-English explanation of the entire document. This MUST be detailed and thorough — cover every important aspect.
 
-Structure your summary as a flowing explanation (NOT bullet points) with the following sections, each starting on a new line with a heading in ALL CAPS followed by a colon:
+CRITICAL FORMAT RULE: The summary is a single JSON string. You MUST separate sections using the exact separator "|||" (three pipe characters). Do NOT use actual line breaks or newlines inside the string. Use this exact format:
 
-WHAT THIS DOCUMENT IS: Identify the document type, all parties involved (full names and roles), the purpose of the agreement, and the overall duration or scope.
+"WHAT THIS DOCUMENT IS: [text] ||| KEY TERMS AND OBLIGATIONS: [text] ||| PAYMENT AND FINANCIAL TERMS: [text] ||| IMPORTANT RIGHTS AND RESTRICTIONS: [text] ||| HOW THE AGREEMENT ENDS: [text] ||| DISPUTE RESOLUTION AND LEGAL TERMS: [text] ||| KEY CONCERNS: [text]"
 
-KEY TERMS AND OBLIGATIONS: Explain every major obligation each party must fulfil. Be specific — include exact amounts (use ₹ symbol), deadlines, deliverables, service descriptions, work scope, timelines, payment schedules, and any performance requirements. If any term uses legal jargon, replace it with everyday words.
+Section guidance:
+- WHAT THIS DOCUMENT IS: Document type, all parties (full names and roles), purpose, duration/scope.
+- KEY TERMS AND OBLIGATIONS: Every major obligation each party must fulfil — exact amounts (₹ symbol), deadlines, deliverables, work scope, timelines, payment schedules. Replace all legal jargon with everyday words.
+- PAYMENT AND FINANCIAL TERMS: All payment amounts, due dates, calculation method, late payment consequences, penalties. If none, state that.
+- IMPORTANT RIGHTS AND RESTRICTIONS: What each party can and cannot do — non-compete, confidentiality, IP ownership, usage rights, behavioural restrictions.
+- HOW THE AGREEMENT ENDS: All termination conditions, who can end it, notice periods, post-termination obligations.
+- DISPUTE RESOLUTION AND LEGAL TERMS: How disputes are handled, which courts/laws apply, governing jurisdiction.
+- KEY CONCERNS: Top 2-3 risks or unusual clauses. Start each with the warning symbol and explain why it matters to the user.
 
-PAYMENT AND FINANCIAL TERMS: Explain all payment amounts, when they are due, how they are calculated, what happens if payment is late, and any penalties or interest clauses. If no payment terms exist, state that.
-
-IMPORTANT RIGHTS AND RESTRICTIONS: Explain what each party is allowed and not allowed to do under this agreement — non-compete clauses, confidentiality obligations, intellectual property ownership, usage rights, and any restrictions on the parties' behaviour.
-
-HOW THE AGREEMENT ENDS: Explain all termination conditions — who can end the agreement, under what circumstances, how much notice is required, and what happens to obligations after termination.
-
-DISPUTE RESOLUTION AND LEGAL TERMS: Explain how disputes are handled (arbitration, court, mediation), which courts or laws apply, and which state or jurisdiction governs the agreement.
-
-KEY CONCERNS: List the top 2-3 most important risks, unusual clauses, or things the user absolutely must know before signing. Start each concern with "⚠" and explain clearly why it matters.
-
-Rules:
+Additional rules:
 - Zero legal jargon. Replace every legal term with plain everyday language.
-- Use "you" for the user's side and "the other party" or their actual name for the other side.
+- Use "you" for the user's side and the other party's actual name or "the other party" for the other side.
 - Be specific with numbers, dates, amounts — do not generalise.
-- If a section's information is not in the document, write "Not specified in this document."
-- The total summary should be thorough enough that someone could understand the entire document just by reading your summary.
+- If a section's information is not in the document, write "Not specified in this document." for that section.
+- Never use actual newline characters inside the summary string — use ||| to separate sections only.
 
 CLAUSES INSTRUCTION: Extract every significant clause from the document. For each clause:
   - type: Use the full standard legal name (e.g. "Non-Compete Clause", "Payment Terms", "Termination Clause", "Force Majeure", "Confidentiality Clause", "Indemnity Clause", "Governing Law", "Dispute Resolution").
