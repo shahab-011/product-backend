@@ -1,8 +1,5 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const Anthropic = require('@anthropic-ai/sdk');
 const { getFirstChunks, prepareContext } = require('./chunker.service');
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
@@ -194,14 +191,9 @@ ${snippet1}
 Document B (Revised):
 ${snippet2}`;
 
-    const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const rawText = message.content[0].text;
-    console.log('compareDocuments Claude raw (first 400):', rawText?.slice(0, 400));
+    const result = await model.generateContent(prompt);
+    const rawText = result.response.text();
+    console.log('compareDocuments raw (first 400):', rawText?.slice(0, 400));
     return safeJsonParse(rawText);
   } catch (err) {
     console.error('compareDocuments error:', err.message);
