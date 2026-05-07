@@ -162,83 +162,45 @@ User question: ${question}`;
 
 exports.compareDocuments = async (text1, text2) => {
   try {
-    const compareGenAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const compareModel = compareGenAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+    const snippet1 = cleanExtractedText(text1).slice(0, 2500);
+    const snippet2 = cleanExtractedText(text2).slice(0, 2500);
+
+    const prompt = `You are an Indian legal AI. Compare the two documents below and return ONLY valid JSON — no markdown, no backticks, no extra text. Your response must start with { and end with }.
+
+Use this exact JSON structure:
+{
+  "summary": "2-3 plain English sentences: what kind of document, what changed overall, and the verdict for the user",
+  "additions": ["plain English string describing each clause/right added in Document B that was NOT in Document A"],
+  "removals": ["plain English string describing each clause/right removed from Document B that WAS in Document A"],
+  "modifications": [
+    {
+      "clauseName": "clause name and number if visible",
+      "before": "quote or paraphrase from Document A, max 150 chars",
+      "after": "quote or paraphrase from Document B, max 150 chars",
+      "impact": "1-2 sentences: what this change means for the user practically",
+      "severity": "low or medium or high"
+    }
+  ],
+  "riskChange": "improved or worsened or neutral",
+  "recommendation": "2-3 sentences of specific advice: which clauses to negotiate and whether to sign as-is"
+}
+
+Document A (Original):
+${snippet1}
+
+Document B (Revised):
+${snippet2}`;
+
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.2 },
     });
 
-    const snippet1 = cleanExtractedText(text1).slice(0, 3000);
-    const snippet2 = cleanExtractedText(text2).slice(0, 3000);
-
-    const prompt = `You are an expert Indian legal AI helping ordinary users understand what changed between two versions of a legal document. Return ONLY a valid JSON object. No markdown. No backticks. No explanation. Start your response with { and end with }.
-
-PERSPECTIVE: Always write from the USER's perspective — the person reading this comparison. "You" = the user. "The other party" = company/builder/employer/counterparty.
-
-SUMMARY INSTRUCTION: Write 2-3 plain English sentences. Sentence 1: what kind of document this is and the overall direction of change. Sentence 2: the most important change that affects the user. Sentence 3: overall verdict (e.g. "Version B is significantly worse for you because..."). Zero legal jargon.
-
-ADDITIONS INSTRUCTION: List every clause, right, or protection that appears in Document B but did NOT exist in Document A.
-Each addition is a plain English string (not a clause number) describing:
-  - What was added AND what it means for the user practically
-  - Example: "Late payment penalty added: if they don't pay within 30 days, they owe you 1.5% monthly interest — this protects you"
-  - Example: "Company can now assign this contract to any third party without telling you — you could end up working for a completely different company"
-Include ALL additions. Do not skip any.
-
-REMOVALS INSTRUCTION: List every clause, right, or protection that existed in Document A but is GONE in Document B.
-Each removal is a plain English string describing:
-  - What was removed AND why losing it hurts the user
-  - Example: "Dispute resolution clause removed — if there's a disagreement, you now have no agreed process to resolve it and must go straight to court"
-  - Example: "Your right to keep your pre-existing work (IP) removed — everything you made before this contract could now belong to them"
-Include ALL removals. Do not skip any.
-
-MODIFICATIONS INSTRUCTION: For every clause that exists in BOTH documents but changed:
-  - clauseName: Full clause name + number if visible (e.g. "Non-Compete Clause (8.2)")
-  - before: Exact quote or close paraphrase from Document A (max 200 chars, truncate with ...)
-  - after: Exact quote or close paraphrase from Document B (max 200 chars, truncate with ...)
-  - impact: 1-2 plain English sentences on what this change MEANS FOR THE USER. Start with a concrete consequence: "This means you..." or "As a result, you..."
-  - severity: "high" = serious financial or legal harm to user; "medium" = needs negotiation attention; "low" = minor or administrative
-
-RISK CHANGE INSTRUCTION:
-  - "worsened": Version B has more clauses that harm the user than Version A
-  - "improved": Version B has fewer harmful clauses or better protections for the user
-  - "neutral": The changes roughly balance out — some better, some worse
-
-RECOMMENDATION INSTRUCTION: Write a full paragraph (3-5 sentences) of specific, actionable advice. Name the exact clauses to negotiate. Use plain English. End with whether the user should or should not sign as-is.
-
-Return this exact JSON structure:
-{
-  "summary": "2-3 plain English sentences — what changed and overall verdict",
-  "additions": [
-    "Plain English description of what was added AND what it means for the user"
-  ],
-  "removals": [
-    "Plain English description of what was removed AND why losing it hurts the user"
-  ],
-  "modifications": [
-    {
-      "clauseName": "Full clause name + number e.g. Non-Compete Clause (8.2)",
-      "before": "Verbatim or close paraphrase from Document A — max 200 chars",
-      "after": "Verbatim or close paraphrase from Document B — max 200 chars",
-      "impact": "Plain English: what this specific change means for the user. Start with a concrete consequence.",
-      "severity": "low|medium|high"
-    }
-  ],
-  "riskChange": "improved|worsened|neutral",
-  "recommendation": "Full paragraph: specific clauses to negotiate, what to ask for, and whether to sign as-is"
-}
-
-Document A (Original Version):
-${snippet1}
-
-Document B (New/Revised Version):
-${snippet2}`;
-
-    const result = await compareModel.generateContent(prompt);
     const rawText = result.response.text();
-    console.log('compareDocuments raw (first 200):', rawText?.slice(0, 200));
+    console.log('compareDocuments raw (first 400):', rawText?.slice(0, 400));
     return safeJsonParse(rawText);
   } catch (err) {
-    console.error('Gemini compareDocuments error:', err.message);
+    console.error('Gemini compareDocuments FULL error:', err.message, err.status, JSON.stringify(err.errorDetails));
     return {
       summary: 'Document comparison encountered an error. Please try again.',
       additions: [],
