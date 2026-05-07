@@ -4,7 +4,7 @@ const { protect, authorize } = require('../middleware/auth.middleware');
 const {
   getDashboard,
   sendLinkRequest, getLinkedClients, getClientDocuments, unlinkClient,
-  getLinkRequests, acceptLinkRequest, rejectLinkRequest,
+  getLinkRequests, getMyLinks, acceptLinkRequest, rejectLinkRequest, clientUnlink,
   shareDocument, unshareDocument,
   getCases, getCase, createCase, updateCase, deleteCase,
   getClients,
@@ -29,8 +29,10 @@ router.route('/cases/:id')
 
 /* ── Client (user) routes — any authenticated user ───────────────────── */
 router.get('/link-requests',                         protect, getLinkRequests);
+router.get('/my-links',                              protect, getMyLinks);
 router.patch('/link-requests/:linkId/accept',        protect, acceptLinkRequest);
 router.patch('/link-requests/:linkId/reject',        protect, rejectLinkRequest);
+router.patch('/my-links/:linkId/unlink',             protect, clientUnlink);
 router.post('/share-document',                       protect, shareDocument);
 router.post('/unshare-document',                     protect, unshareDocument);
 

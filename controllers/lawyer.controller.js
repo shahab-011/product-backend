@@ -412,6 +412,40 @@ exports.deleteCase = async (req, res, next) => {
   }
 };
 
+/* ── Client: see all their own links (any status except unlinked) ──── */
+
+exports.getMyLinks = async (req, res, next) => {
+  try {
+    const links = await ClientLink.find({
+      clientEmail: req.user.email,
+      status: { $ne: 'unlinked' },
+    })
+      .populate('lawyerId', 'name email')
+      .sort({ createdAt: -1 });
+
+    return sendSuccess(res, { links, total: links.length }, 'Your links fetched');
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Client removes themselves from an accepted link
+exports.clientUnlink = async (req, res, next) => {
+  try {
+    const link = await ClientLink.findOneAndUpdate(
+      { _id: req.params.linkId, clientId: req.user._id, status: 'accepted' },
+      { status: 'unlinked' },
+      { new: true }
+    );
+
+    if (!link) return sendError(res, 'Link not found or not accepted', 404);
+
+    return sendSuccess(res, {}, 'Unlinked successfully');
+  } catch (err) {
+    next(err);
+  }
+};
+
 /* ── Clients list (union of linked accounts + standalone case emails) ─ */
 
 exports.getClients = async (req, res, next) => {
