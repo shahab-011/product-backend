@@ -159,6 +159,12 @@ User question: ${question}`;
 
 exports.compareDocuments = async (text1, text2) => {
   try {
+    const compareGenAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const compareModel = compareGenAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: { temperature: 0.2, maxOutputTokens: 3000 },
+    });
+
     const snippet1 = cleanExtractedText(text1).slice(0, 3000);
     const snippet2 = cleanExtractedText(text2).slice(0, 3000);
 
@@ -224,18 +230,21 @@ ${snippet1}
 Document B (New/Revised Version):
 ${snippet2}`;
 
-    const result = await model.generateContent(prompt);
-    return safeJsonParse(result.response.text());
+    const result = await compareModel.generateContent(prompt);
+    const rawText = result.response.text();
+    console.log('compareDocuments raw (first 200):', rawText?.slice(0, 200));
+    return safeJsonParse(rawText);
   } catch (err) {
-    console.error('compareDocuments error:', err.message);
+    console.error('Gemini compareDocuments error:', err.message);
     return {
-      summary: 'Comparison could not be completed',
+      summary: 'Document comparison encountered an error. Please try again.',
       additions: [],
       removals: [],
       modifications: [],
       riskChange: 'neutral',
-      recommendation: 'Please try again or compare manually.',
+      recommendation: 'Unable to complete comparison. Please try again.',
       error: true,
+      errorMessage: err.message,
     };
   }
 };

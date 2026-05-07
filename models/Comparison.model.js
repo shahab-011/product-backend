@@ -1,28 +1,51 @@
 const mongoose = require('mongoose');
 
-const ModSchema = new mongoose.Schema({
-  clauseName: { type: String },
-  before: { type: String },
-  after: { type: String },
-  impact: { type: String },
-  severity: { type: String, enum: ['low', 'medium', 'high'] },
-});
+const ModificationSchema = new mongoose.Schema(
+  {
+    clauseName: { type: String, default: '' },
+    before:     { type: String, default: '' },
+    after:      { type: String, default: '' },
+    impact:     { type: String, default: '' },
+    severity: {
+      type: String,
+      enum: ['low', 'medium', 'high'],
+      default: 'low',
+    },
+  },
+  { _id: false }
+);
 
 const ComparisonSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    docAId: { type: mongoose.Schema.Types.ObjectId, ref: 'Document', required: true },
-    docBId: { type: mongoose.Schema.Types.ObjectId, ref: 'Document', required: true },
-    summary: { type: String },
-    additions: [{ type: String }],
-    removals: [{ type: String }],
-    modifications: [ModSchema],
-    riskChange: { type: String, enum: ['improved', 'worsened', 'neutral'] },
-    recommendation: { type: String },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'User ID is required'],
+    },
+    docAId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Document',
+      required: [true, 'Document A ID is required'],
+    },
+    docBId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Document',
+      required: [true, 'Document B ID is required'],
+    },
+    summary:        { type: String,           default: '' },
+    additions:      { type: [String],         default: [] },
+    removals:       { type: [String],         default: [] },
+    modifications:  { type: [ModificationSchema], default: [] },
+    riskChange: {
+      type: String,
+      enum: ['improved', 'worsened', 'neutral'],
+      default: 'neutral',
+    },
+    recommendation: { type: String, default: '' },
   },
   { timestamps: true }
 );
 
-ComparisonSchema.index({ userId: 1 });
+ComparisonSchema.index({ userId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Comparison', ComparisonSchema);
