@@ -1,8 +1,8 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Groq = require('groq-sdk');
 const { getFirstChunks, prepareContext } = require('./chunker.service');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const MODEL = 'llama-3.3-70b-versatile';
 
 const safeJsonParse = (text) => {
   const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -12,15 +12,23 @@ const safeJsonParse = (text) => {
   return JSON.parse(cleaned.slice(start, end + 1));
 };
 
-// Cleans PDF.js "&X&" character-level encoding artifacts (e.g. "&D&e&l&h&i&" → "Delhi")
 function cleanExtractedText(raw) {
   if (!raw) return '';
   let text = raw
-    .replace(/&([^&\s])&/g, '$1')   // &X& → X
-    .replace(/&/g, '');              // remove orphaned & markers
-  // Collapse spaced-out single chars from encoding: "D w a r k a" → "Dwarka" (3+ chars)
+    .replace(/&([^&\s])&/g, '$1')
+    .replace(/&/g, '');
   text = text.replace(/\b(?:[A-Za-z\d] ){2,}[A-Za-z\d]\b/g, (m) => m.replace(/ /g, ''));
   return text.replace(/ {2,}/g, ' ').trim();
+}
+
+async function callGroq(prompt, temperature = 0.2, maxTokens = 4096) {
+  const completion = await groq.chat.completions.create({
+    model: MODEL,
+    temperature,
+    max_tokens: maxTokens,
+    messages: [{ role: 'user', content: prompt }],
+  });
+  return completion.choices[0].message.content;
 }
 
 exports.analyzeDocument = async (text, docType = 'legal document') => {
@@ -108,12 +116,11 @@ The JSON must follow this exact structure:
 Document Text:
 ${context}`;
 
-    const result = await model.generateContent(prompt);
-    const raw = result.response.text();
-    console.log('Gemini raw response (first 300):', raw?.slice(0, 300));
+    const raw = await callGroq(prompt, 0.1, 4096);
+    console.log('analyzeDocument raw (first 300):', raw?.slice(0, 300));
     return safeJsonParse(raw);
   } catch (err) {
-    console.error('analyzeDocument error FULL:', err.message, err.status, err.errorDetails);
+    console.error('analyzeDocument error:', err.message);
     return {
       summary: 'Analysis failed',
       detectedDocType: null,
@@ -152,8 +159,7 @@ ${context}
 
 User question: ${question}`;
 
-    const result = await model.generateContent(prompt);
-    return result.response.text();
+    return await callGroq(prompt, 0.3, 1024);
   } catch (err) {
     console.error('askQuestion error:', err.message);
     return 'Sorry, I could not process your question. Please try again.';
@@ -191,8 +197,7 @@ ${snippet1}
 Document B (Revised):
 ${snippet2}`;
 
-    const result = await model.generateContent(prompt);
-    const rawText = result.response.text();
+    const rawText = await callGroq(prompt, 0.2, 4096);
     console.log('compareDocuments raw (first 400):', rawText?.slice(0, 400));
     return safeJsonParse(rawText);
   } catch (err) {
