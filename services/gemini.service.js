@@ -9,7 +9,27 @@ const safeJsonParse = (text) => {
   const start = cleaned.indexOf('{');
   const end = cleaned.lastIndexOf('}');
   if (start === -1 || end === -1) throw new Error('No JSON object found in AI response');
-  return JSON.parse(cleaned.slice(start, end + 1));
+
+  // Walk char-by-char and escape any literal control characters inside string values
+  // (LLMs often output real newlines/tabs inside JSON strings which breaks JSON.parse)
+  let raw = cleaned.slice(start, end + 1);
+  let fixed = '';
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (escaped) { fixed += ch; escaped = false; continue; }
+    if (ch === '\\' && inString) { fixed += ch; escaped = true; continue; }
+    if (ch === '"') { fixed += ch; inString = !inString; continue; }
+    if (inString) {
+      if (ch === '\n') { fixed += '\\n'; continue; }
+      if (ch === '\r') { fixed += '\\r'; continue; }
+      if (ch === '\t') { fixed += '\\t'; continue; }
+    }
+    fixed += ch;
+  }
+
+  return JSON.parse(fixed);
 };
 
 function cleanExtractedText(raw) {
