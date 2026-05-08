@@ -102,6 +102,16 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Direct messaging room — roomId is `msg_${linkId}`
+  socket.on('join-msg-room', (roomId) => {
+    socket.join(roomId);
+    console.log(`💬 ${socket.userName} joined msg room: ${roomId}`);
+  });
+
+  socket.on('leave-msg-room', (roomId) => {
+    socket.leave(roomId);
+  });
+
   socket.on('disconnect', () => {
     console.log(`🔌 Socket disconnected: ${socket.id}`);
     // Remove from all rooms and notify peers
@@ -170,6 +180,7 @@ app.use('/api/alerts',      require('./routes/alert.routes'));
 app.use('/api/comparisons', require('./routes/comparison.routes'));
 app.use('/api/lawyer',      require('./routes/lawyer.routes'));
 app.use('/api/collaboration', require('./routes/collaboration.routes'));
+app.use('/api/messages',     require('./routes/messages.routes'));
 
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'NyayaAI API running', version: '1.0.0' });
