@@ -2,6 +2,7 @@ const ClientLink = require('../models/ClientLink.model');
 const Case       = require('../models/Case.model');
 const User       = require('../models/User.model');
 const Document   = require('../models/Document.model');
+const Analysis   = require('../models/Analysis.model');
 const Alert      = require('../models/Alert.model');
 const { sendSuccess, sendError } = require('../utils/response');
 
@@ -508,6 +509,88 @@ exports.getClients = async (req, res, next) => {
 
     const clients = Array.from(clientMap.values());
     return sendSuccess(res, { clients, total: clients.length }, 'Clients fetched');
+  } catch (err) {
+    next(err);
+  }
+};
+
+/* ── Single link + client info (for LawyerClientView page) ─────────── */
+
+exports.getClientLink = async (req, res, next) => {
+  try {
+    const link = await ClientLink.findOne({
+      _id: req.params.linkId,
+      lawyerId: req.user._id,
+    }).populate('clientId', 'name email plan createdAt lastLogin');
+
+    if (!link) return sendError(res, 'Client link not found', 404);
+
+    const obj = link.toObject();
+    if (link.clientId && link.status === 'accepted') {
+      const [docCount, caseCount] = await Promise.all([
+        Document.countDocuments({ userId: link.clientId._id }),
+        Case.countDocuments({ lawyerId: req.user._id, clientId: link.clientId._id }),
+      ]);
+      obj.stats = {
+        totalDocuments:  docCount,
+        sharedDocuments: link.sharedDocuments.length,
+        totalCases:      caseCount,
+      };
+    }
+
+    return sendSuccess(res, { link: obj }, 'Link fetched');
+  } catch (err) {
+    next(err);
+  }
+};
+
+/* ── Shared docs for a link (by linkId, not clientId) ──────────────── */
+
+exports.getLinkDocuments = async (req, res, next) => {
+  try {
+    const link = await ClientLink.findOne({
+      _id: req.params.linkId,
+      lawyerId: req.user._id,
+      status: 'accepted',
+    });
+
+    if (!link) return sendError(res, 'Client link not found or not accepted', 403);
+
+    const documents = await Document.find({ _id: { $in: link.sharedDocuments } })
+      .select('-extractedText')
+      .lean();
+
+    return sendSuccess(res, { documents, total: documents.length }, 'Documents fetched');
+  } catch (err) {
+    next(err);
+  }
+};
+
+/* ── Full analysis for one shared document ──────────────────────────── */
+
+exports.getClientDocAnalysis = async (req, res, next) => {
+  try {
+    const { linkId, docId } = req.params;
+
+    const link = await ClientLink.findOne({
+      _id: linkId,
+      lawyerId: req.user._id,
+      status: 'accepted',
+    });
+
+    if (!link) return sendError(res, 'Client link not found', 403);
+
+    const isShared = link.sharedDocuments.some(id => id.toString() === docId);
+    if (!isShared) return sendError(res, 'Document not shared with you', 403);
+
+    const [document, analysis] = await Promise.all([
+      Document.findById(docId).select('-extractedText').lean(),
+      Analysis.findOne({ documentId: docId }).lean(),
+    ]);
+
+    if (!document) return sendError(res, 'Document not found', 404);
+
+    return sendSuccess(res, { document, analysis: analysis || null }, 'Document analysis fetched');
   } catch (err) {
     next(err);
   }

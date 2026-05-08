@@ -8,6 +8,7 @@ const {
   shareDocument, unshareDocument,
   getCases, getCase, createCase, updateCase, deleteCase,
   getClients,
+  getClientLink, getLinkDocuments, getClientDocAnalysis,
 } = require('../controllers/lawyer.controller');
 
 /* ── Lawyer-only routes ──────────────────────────────────────────────── */
@@ -17,6 +18,11 @@ router.get('/linked-clients',                protect, authorize('lawyer', 'admin
 router.get('/clients',                       protect, authorize('lawyer', 'admin'), getClients);
 router.get('/clients/:clientId/documents',   protect, authorize('lawyer', 'admin'), getClientDocuments);
 router.patch('/links/:linkId/unlink',        protect, authorize('lawyer', 'admin'), unlinkClient);
+
+/* ── Single link + shared document analysis (client view page) ───────── */
+router.get('/links/:linkId',                                   protect, authorize('lawyer', 'admin'), getClientLink);
+router.get('/links/:linkId/documents',                         protect, authorize('lawyer', 'admin'), getLinkDocuments);
+router.get('/links/:linkId/documents/:docId/analysis',         protect, authorize('lawyer', 'admin'), getClientDocAnalysis);
 
 router.route('/cases')
   .get(protect, authorize('lawyer', 'admin'), getCases)
