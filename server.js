@@ -102,7 +102,8 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Direct messaging room — roomId is `msg_${linkId}`
+  // ── Direct messaging ────────────────────────────────────────────────
+  // roomId format: `msg_${linkId}`
   socket.on('join-msg-room', (roomId) => {
     socket.join(roomId);
     console.log(`💬 ${socket.userName} joined msg room: ${roomId}`);
@@ -110,6 +111,37 @@ io.on('connection', (socket) => {
 
   socket.on('leave-msg-room', (roomId) => {
     socket.leave(roomId);
+  });
+
+  // Pure WebSocket send — persist to DB then broadcast to the whole room
+  // (sender included so they get the server-confirmed message with real _id)
+  socket.on('send-message', async ({ linkId, text }) => {
+    if (!text?.trim() || !linkId) return;
+    try {
+      const ClientLink    = require('./models/ClientLink.model');
+      const DirectMessage = require('./models/DirectMessage.model');
+
+      const link = await ClientLink.findById(linkId).lean();
+      if (!link) return;
+
+      const uid = String(socket.userId);
+      if (String(link.lawyerId) !== uid && String(link.clientId) !== uid) return;
+
+      const role = String(link.lawyerId) === uid ? 'lawyer' : 'client';
+
+      const msg = await DirectMessage.create({
+        linkId,
+        senderId:   socket.userId,
+        senderName: socket.userName,
+        senderRole: role,
+        text:       text.trim(),
+      });
+
+      // Broadcast confirmed message to everyone in room (sender + receiver)
+      io.to(`msg_${linkId}`).emit('direct-message', msg.toObject());
+    } catch (err) {
+      socket.emit('message-error', { error: err.message });
+    }
   });
 
   socket.on('disconnect', () => {
