@@ -2,20 +2,14 @@ const Annotation = require('../models/Annotation.model');
 const Document   = require('../models/Document.model');
 const { sendSuccess, sendError } = require('../utils/response');
 
-/* Access guard — user must own or be in the same lawyer case as the doc.
-   For this version we allow any authenticated user who knows the docId
-   (e.g. a lawyer reviewing a shared doc) to annotate. The documentId
-   itself is the room key, so only users who have joined that room see updates. */
-async function assertDocAccess(docId, userId) {
-  // Owner check — non-owners (e.g. lawyers viewing shared docs) can still read/annotate
+async function assertDocAccess(docId) {
   const doc = await Document.findById(docId);
-  if (!doc) return null;
-  return doc;
+  return doc || null;
 }
 
 exports.getAnnotations = async (req, res, next) => {
   try {
-    const doc = await assertDocAccess(req.params.docId, req.user._id);
+    const doc = await assertDocAccess(req.params.docId);
     if (!doc) return sendError(res, 'Document not found', 404);
 
     const annotations = await Annotation.find({ documentId: req.params.docId })
@@ -29,25 +23,28 @@ exports.getAnnotations = async (req, res, next) => {
 
 exports.createAnnotation = async (req, res, next) => {
   try {
-    const { clauseIndex, text, color } = req.body;
+    const { clauseIndex, text, color, type, severity, clauseName } = req.body;
 
     if (clauseIndex === undefined || clauseIndex === null || !text?.trim()) {
       return sendError(res, 'clauseIndex and text are required', 400);
     }
 
-    const doc = await assertDocAccess(req.params.docId, req.user._id);
+    const doc = await assertDocAccess(req.params.docId);
     if (!doc) return sendError(res, 'Document not found', 404);
 
     const annotation = await Annotation.create({
       documentId:  req.params.docId,
       userId:      req.user._id,
       userName:    req.user.name,
+      authorRole:  req.user.role || 'user',
       clauseIndex: Number(clauseIndex),
+      clauseName:  clauseName || '',
       text:        text.trim(),
       color:       color || 'yellow',
+      type:        type || 'annotation',
+      severity:    severity || null,
     });
 
-    // Broadcast to every socket in the document room (including sender — client deduplicates by _id)
     const io = req.app.get('io');
     io.to(req.params.docId).emit('document-update', { type: 'annotation', annotation });
 
@@ -61,7 +58,7 @@ exports.deleteAnnotation = async (req, res, next) => {
   try {
     const annotation = await Annotation.findOneAndDelete({
       _id:    req.params.aId,
-      userId: req.user._id, // only the author can delete their own note
+      userId: req.user._id,
     });
 
     if (!annotation) return sendError(res, 'Annotation not found or not yours', 404);
@@ -73,6 +70,31 @@ exports.deleteAnnotation = async (req, res, next) => {
     });
 
     return sendSuccess(res, null, 'Annotation deleted');
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.resolveAnnotation = async (req, res, next) => {
+  try {
+    const annotation = await Annotation.findById(req.params.aId);
+    if (!annotation) return sendError(res, 'Annotation not found', 404);
+
+    // Toggle resolved state
+    annotation.isResolved = !annotation.isResolved;
+    annotation.resolvedAt = annotation.isResolved ? new Date() : null;
+    annotation.resolvedBy = annotation.isResolved ? req.user._id : null;
+    await annotation.save();
+
+    const io = req.app.get('io');
+    io.to(req.params.docId).emit('document-update', {
+      type:         'annotation-resolve',
+      annotationId: String(annotation._id),
+      isResolved:   annotation.isResolved,
+      resolvedBy:   req.user.name,
+    });
+
+    return sendSuccess(res, { annotation }, annotation.isResolved ? 'Resolved' : 'Unresolved');
   } catch (err) {
     next(err);
   }

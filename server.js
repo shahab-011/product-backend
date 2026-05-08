@@ -80,6 +80,28 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('document-update', data);
   });
 
+  // Typing indicator — broadcast to everyone else in the room
+  socket.on('typing-start', ({ roomId, clauseIndex }) => {
+    socket.to(roomId).emit('typing-start', {
+      userId:      socket.userId,
+      userName:    socket.userName,
+      clauseIndex,
+    });
+  });
+
+  socket.on('typing-stop', ({ roomId }) => {
+    socket.to(roomId).emit('typing-stop', { userId: socket.userId });
+  });
+
+  // Cursor / scroll position — which clause the user is currently on
+  socket.on('cursor-move', ({ roomId, clauseIndex }) => {
+    socket.to(roomId).emit('cursor-move', {
+      userId:      socket.userId,
+      userName:    socket.userName,
+      clauseIndex,
+    });
+  });
+
   socket.on('disconnect', () => {
     console.log(`🔌 Socket disconnected: ${socket.id}`);
     // Remove from all rooms and notify peers
@@ -147,6 +169,7 @@ app.use('/api/analysis',    require('./routes/analysis.routes'));
 app.use('/api/alerts',      require('./routes/alert.routes'));
 app.use('/api/comparisons', require('./routes/comparison.routes'));
 app.use('/api/lawyer',      require('./routes/lawyer.routes'));
+app.use('/api/collaboration', require('./routes/collaboration.routes'));
 
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'NyayaAI API running', version: '1.0.0' });

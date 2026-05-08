@@ -16,6 +16,7 @@ const {
   getAnnotations,
   createAnnotation,
   deleteAnnotation,
+  resolveAnnotation,
 } = require('../controllers/annotation.controller');
 
 router.post('/upload', protect, upload.single('document'), uploadDocument);
@@ -29,6 +30,7 @@ router.delete('/:id', protect, deleteDocument);
 // Annotations — nested under each document
 router.get('/:docId/annotations',          protect, getAnnotations);
 router.post('/:docId/annotations',         protect, createAnnotation);
+router.patch('/:docId/annotations/:aId/resolve', protect, resolveAnnotation);
 router.delete('/:docId/annotations/:aId',  protect, deleteAnnotation);
 
 router.use((err, req, res, next) => {
