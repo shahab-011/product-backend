@@ -191,13 +191,20 @@ exports.getLinkRequests = async (req, res, next) => {
 // Client accepts a pending link request
 exports.acceptLinkRequest = async (req, res, next) => {
   try {
-    const link = await ClientLink.findOneAndUpdate(
-      { _id: req.params.linkId, clientEmail: req.user.email, status: 'pending' },
-      { status: 'accepted', clientId: req.user._id, acceptedAt: new Date() },
-      { new: true }
-    ).populate('lawyerId', 'name email');
+    const link = await ClientLink.findById(req.params.linkId);
 
-    if (!link) return sendError(res, 'Link request not found or already processed', 404);
+    if (!link) return sendError(res, 'Link request not found', 404);
+    if (link.clientEmail !== req.user.email.trim().toLowerCase()) {
+      return sendError(res, 'This link request was not sent to your email', 403);
+    }
+    if (link.status === 'accepted') return sendError(res, 'Link request already accepted', 400);
+    if (link.status !== 'pending')  return sendError(res, `Link request is already ${link.status}`, 400);
+
+    link.status    = 'accepted';
+    link.clientId  = req.user._id;
+    link.acceptedAt = new Date();
+    await link.save();
+    await link.populate('lawyerId', 'name email');
 
     await Alert.create({
       userId:    link.lawyerId._id,
