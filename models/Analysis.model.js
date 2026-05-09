@@ -2,8 +2,8 @@ const mongoose = require('mongoose');
 
 const MissingProtectionSchema = new mongoose.Schema({
   title:          { type: String },
-  category:       { type: String, enum: ['Payment','IP','Termination','Privacy','Dispute','Data','Safety','Liability','Other'] },
-  severity:       { type: String, enum: ['critical','high','medium','low'] },
+  category:       { type: String },
+  severity:       { type: String },
   whatIsMissing:  { type: String },
   whyItMatters:   { type: String },
   defaultOutcome: { type: String },

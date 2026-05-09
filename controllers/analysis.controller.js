@@ -74,8 +74,12 @@ exports.analyzeDoc = async (req, res, next) => {
       renewalDate: aiResult.renewalDate ? new Date(aiResult.renewalDate) : undefined,
       analyzedAt: new Date(),
 
-      // Silence Detector
-      missingProtections: silenceResult.missingProtections || [],
+      // Silence Detector — normalize severity/category to lowercase so enum display works
+      missingProtections: (silenceResult.missingProtections || []).map(p => ({
+        ...p,
+        severity: (p.severity || 'low').toLowerCase(),
+        category: p.category || 'Other',
+      })),
       silenceScore:       silenceResult.silenceScore ?? null,
       silenceSummary:     silenceResult.summary || '',
       mostCriticalGap:    silenceResult.mostCriticalGap || '',
@@ -223,10 +227,16 @@ exports.runSilenceDetector = async (req, res, next) => {
 
     const silenceResult = await detectSilence(doc.extractedText, doc.docType);
 
+    const normalizedProtections = (silenceResult.missingProtections || []).map(p => ({
+      ...p,
+      severity: (p.severity || 'low').toLowerCase(),
+      category: p.category || 'Other',
+    }));
+
     await Analysis.findOneAndUpdate(
       { documentId: req.params.docId },
       {
-        missingProtections: silenceResult.missingProtections || [],
+        missingProtections: normalizedProtections,
         silenceScore:       silenceResult.silenceScore ?? null,
         silenceSummary:     silenceResult.summary || '',
         mostCriticalGap:    silenceResult.mostCriticalGap || '',
@@ -235,7 +245,7 @@ exports.runSilenceDetector = async (req, res, next) => {
       { new: true }
     );
 
-    return sendSuccess(res, { silenceResult }, 'Silence detection complete');
+    return sendSuccess(res, { silenceResult: { ...silenceResult, missingProtections: normalizedProtections } }, 'Silence detection complete');
   } catch (err) {
     next(err);
   }
