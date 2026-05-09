@@ -256,6 +256,77 @@ exports.generateHealthScore = (aiScore, complianceScore) => {
   return Math.round(aiScore * 0.6 + complianceScore * 0.4);
 };
 
+exports.extractGraphData = async (documents) => {
+  try {
+    const docSummaries = documents.map((doc, i) =>
+      `Document ${i + 1} (ID: ${doc._id}, Type: ${doc.docType}, Name: ${doc.originalName}):\n${cleanExtractedText(doc.extractedText).slice(0, 1200)}`
+    ).join('\n\n---\n\n');
+
+    const prompt = `You are NyayaAI extracting a knowledge graph from legal documents.
+
+Analyze these ${documents.length} legal documents and extract graph data for a network visualization.
+
+IMPORTANT: Return ONLY valid JSON. No markdown. No backticks. Start with { end with }.
+
+{
+  "nodes": [
+    {
+      "id": "unique_string_no_spaces",
+      "label": "Short display name max 28 chars",
+      "type": "document",
+      "documentId": "mongodb_id_or_null",
+      "details": "One sentence description",
+      "severity": "high"
+    }
+  ],
+  "edges": [
+    {
+      "source": "node_id",
+      "target": "node_id",
+      "relationship": "bound_by",
+      "label": "Short label",
+      "isConflict": false
+    }
+  ],
+  "conflicts": [
+    {
+      "description": "Plain English conflict description",
+      "nodeIds": ["id1", "id2"],
+      "severity": "high"
+    }
+  ],
+  "summary": "2 sentences describing the obligation network."
+}
+
+Node type rules:
+- type must be exactly one of: document, party, obligation, date, risk
+- severity must be exactly one of: critical, high, medium, low, null
+- Create one document node per document — use the actual MongoDB _id as documentId
+- Extract 2-3 key parties per document (employer, employee, company names)
+- Extract 3-4 key obligations per document (payment, delivery, confidentiality obligations)
+- Extract important dates as date nodes (expiry, renewal, deadlines)
+- Create risk nodes for high-severity clauses
+
+Edge relationship rules:
+- relationship must be one of: bound_by, involves, conflicts_with, references, due_by, owned_by, paid_by
+- isConflict: true ONLY for conflicts_with edges
+- Find real conflicts: overlapping non-competes, conflicting jurisdictions, contradictory IP ownership
+
+Keep node IDs as simple_underscore_strings (no spaces, no special chars).
+Keep labels SHORT — max 28 characters.
+Find at least one conflict if the documents have any overlapping obligations.
+
+Documents to analyze:
+${docSummaries}`;
+
+    const raw = await callGroq(prompt, 0.1, 3000);
+    return safeJsonParse(raw);
+  } catch (err) {
+    console.error('extractGraphData error:', err.message);
+    return { nodes: [], edges: [], conflicts: [], summary: 'Graph extraction failed.', error: true };
+  }
+};
+
 exports.detectSilence = async (text, docType = 'legal document') => {
   try {
     const context = cleanExtractedText(text).slice(0, 4000);

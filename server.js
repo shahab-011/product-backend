@@ -213,6 +213,7 @@ app.use('/api/comparisons', require('./routes/comparison.routes'));
 app.use('/api/lawyer',      require('./routes/lawyer.routes'));
 app.use('/api/collaboration', require('./routes/collaboration.routes'));
 app.use('/api/messages',     require('./routes/messages.routes'));
+app.use('/api/graph',        require('./routes/graph.routes'));
 
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'NyayaAI API running', version: '1.0.0' });
