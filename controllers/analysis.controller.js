@@ -2,7 +2,7 @@ const Analysis = require('../models/Analysis.model');
 const Document = require('../models/Document.model');
 const ChatSession = require('../models/ChatSession.model');
 const Alert = require('../models/Alert.model');
-const { analyzeDocument, askQuestion, generateHealthScore } = require('../services/gemini.service');
+const { analyzeDocument, askQuestion, generateHealthScore, detectSilence } = require('../services/gemini.service');
 const { runComplianceCheck } = require('../services/compliance.service');
 const { sendSuccess, sendError } = require('../utils/response');
 
@@ -35,9 +35,10 @@ exports.analyzeDoc = async (req, res, next) => {
     doc.status = 'processing';
     await doc.save({ validateBeforeSave: false });
 
-    const [aiResult, complianceResult] = await Promise.all([
+    const [aiResult, complianceResult, silenceResult] = await Promise.all([
       analyzeDocument(doc.extractedText, doc.docType),
       Promise.resolve(runComplianceCheck(doc.extractedText)),
+      detectSilence(doc.extractedText, doc.docType),
     ]);
 
     const finalHealth = generateHealthScore(
@@ -72,6 +73,13 @@ exports.analyzeDoc = async (req, res, next) => {
       expiryDate: aiResult.expiryDate ? new Date(aiResult.expiryDate) : undefined,
       renewalDate: aiResult.renewalDate ? new Date(aiResult.renewalDate) : undefined,
       analyzedAt: new Date(),
+
+      // Silence Detector
+      missingProtections: silenceResult.missingProtections || [],
+      silenceScore:       silenceResult.silenceScore ?? null,
+      silenceSummary:     silenceResult.summary || '',
+      mostCriticalGap:    silenceResult.mostCriticalGap || '',
+      silenceAnalyzedAt:  new Date(),
     };
 
     const analysis = existing
@@ -202,6 +210,32 @@ exports.clearChatHistory = async (req, res, next) => {
     );
 
     return sendSuccess(res, null, 'Chat history cleared');
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.runSilenceDetector = async (req, res, next) => {
+  try {
+    const doc = await Document.findOne({ _id: req.params.docId, userId: req.user._id });
+    if (!doc)              return sendError(res, 'Document not found', 404);
+    if (!doc.extractedText) return sendError(res, 'Document has no text to analyze', 400);
+
+    const silenceResult = await detectSilence(doc.extractedText, doc.docType);
+
+    await Analysis.findOneAndUpdate(
+      { documentId: req.params.docId },
+      {
+        missingProtections: silenceResult.missingProtections || [],
+        silenceScore:       silenceResult.silenceScore ?? null,
+        silenceSummary:     silenceResult.summary || '',
+        mostCriticalGap:    silenceResult.mostCriticalGap || '',
+        silenceAnalyzedAt:  new Date(),
+      },
+      { new: true }
+    );
+
+    return sendSuccess(res, { silenceResult }, 'Silence detection complete');
   } catch (err) {
     next(err);
   }

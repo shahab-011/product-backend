@@ -1,5 +1,15 @@
 const mongoose = require('mongoose');
 
+const MissingProtectionSchema = new mongoose.Schema({
+  title:          { type: String },
+  category:       { type: String, enum: ['Payment','IP','Termination','Privacy','Dispute','Data','Safety','Liability','Other'] },
+  severity:       { type: String, enum: ['critical','high','medium','low'] },
+  whatIsMissing:  { type: String },
+  whyItMatters:   { type: String },
+  defaultOutcome: { type: String },
+  suggestedClause:{ type: String },
+}, { _id: false });
+
 const ClauseSchema = new mongoose.Schema({
   type: { type: String },
   originalText: { type: String },
@@ -46,6 +56,13 @@ const AnalysisSchema = new mongoose.Schema(
     expiryDate: { type: Date },
     renewalDate: { type: Date },
     analyzedAt: { type: Date, default: Date.now },
+
+    // Silence Detector fields
+    missingProtections: { type: [MissingProtectionSchema], default: [] },
+    silenceScore:       { type: Number, min: 0, max: 100, default: null },
+    silenceSummary:     { type: String, default: '' },
+    mostCriticalGap:    { type: String, default: '' },
+    silenceAnalyzedAt:  { type: Date, default: null },
   },
   { timestamps: true }
 );

@@ -255,3 +255,76 @@ ${snippet2}`;
 exports.generateHealthScore = (aiScore, complianceScore) => {
   return Math.round(aiScore * 0.6 + complianceScore * 0.4);
 };
+
+exports.detectSilence = async (text, docType = 'legal document') => {
+  try {
+    const context = cleanExtractedText(text).slice(0, 4000);
+
+    const prompt = `You are NyayaAI, a legal document expert specializing in Indian law. You are analyzing a ${docType}.
+
+Your task is DIFFERENT from normal analysis.
+Do NOT analyze what the document says.
+Instead find what the document DOES NOT SAY — the missing protections and absent clauses that leave the user vulnerable.
+
+IMPORTANT: Return ONLY valid JSON. No markdown. No backticks. Start with { end with }.
+
+Return this exact JSON structure:
+{
+  "missingProtections": [
+    {
+      "title": "Short name of the missing protection",
+      "category": "Payment",
+      "severity": "critical",
+      "whatIsMissing": "Plain English description of what clause or protection is absent from this document",
+      "whyItMatters": "Specific consequence for an Indian user if this protection is missing. Be concrete.",
+      "defaultOutcome": "What happens by DEFAULT under Indian law if this clause is absent. This is the danger the user faces.",
+      "suggestedClause": "A one-sentence example of what this clause should say to protect the user."
+    }
+  ],
+  "silenceScore": 65,
+  "summary": "2 sentences explaining the overall silence risk of this document in plain English for a non-lawyer Indian user.",
+  "mostCriticalGap": "The single most important missing protection in one sentence."
+}
+
+Rules:
+- category must be exactly one of: Payment, IP, Termination, Privacy, Dispute, Data, Safety, Liability, Other
+- severity must be exactly one of: critical, high, medium, low
+- silenceScore: 0-100 where 0 = document has everything (safe), 100 = most protections are missing (dangerous)
+- Find between 4 and 10 missing protections
+- Focus on protections that matter specifically for Indian users and Indian law
+- Be specific about Indian statutes when relevant (Contract Act 1872, IT Act 2000, DPDP Act 2023, Maharashtra Rent Control Act, etc.)
+
+Document text to analyze:
+${context}
+
+Common missing protections to check for:
+- Security deposit refund timeline and conditions
+- Late payment penalty for unpaid invoices
+- Intellectual property ownership of pre-existing work
+- Data deletion rights (DPDP Act 2023)
+- Dispute resolution mechanism
+- Force majeure protection for the weaker party
+- Mutual non-disclosure (not just one-sided)
+- Termination compensation or severance
+- Probation terms and rights during probation
+- Right to work for other clients (freelancers)
+- Jurisdiction specification
+- Governing law specification
+- Confidentiality scope and duration
+- Amendment procedure requiring mutual consent
+- Assignment restriction preventing contract transfer`;
+
+    const raw = await callGroq(prompt, 0.2, 2000);
+    return safeJsonParse(raw);
+  } catch (err) {
+    console.error('detectSilence error:', err.message);
+    return {
+      missingProtections: [],
+      silenceScore: 0,
+      summary: 'Silence detection failed. Please try again.',
+      mostCriticalGap: '',
+      error: true,
+      errorMessage: err.message,
+    };
+  }
+};
