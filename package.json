@@ -15,6 +15,7 @@
     "@anthropic-ai/sdk": "^0.90.0",
     "@google/generative-ai": "^0.24.1",
     "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^4.22.1",
@@ -30,7 +31,10 @@
     "morgan": "^1.10.1",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.7",
+    "otplib": "^13.4.0",
     "pdf-parse": "^1.1.4",
+    "qrcode": "^1.5.4",
     "socket.io": "^4.8.3",
     "xss-clean": "^0.1.4"
   },

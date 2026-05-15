@@ -1,9 +1,10 @@
 require('dotenv').config();
 require('express-async-errors');
 
-const express = require('express');
-const http = require('http');
-const cors = require('cors');
+const express      = require('express');
+const http         = require('http');
+const cors         = require('cors');
+const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
@@ -163,6 +164,7 @@ if (process.env.NODE_ENV === 'production') {
 
 app.use(helmet());
 app.use(cors({ origin: corsOrigin, credentials: true }));
+app.use(cookieParser());
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(mongoSanitize());

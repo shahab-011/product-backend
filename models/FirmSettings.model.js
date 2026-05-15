@@ -23,6 +23,13 @@ const NotificationPrefsSchema = new mongoose.Schema({
 const FirmSettingsSchema = new mongoose.Schema({
   firmId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
 
+  // Onboarding
+  onboardingComplete: { type: Boolean, default: false },
+  plan:      { type: String, enum: ['free', 'starter', 'advanced', 'expand'], default: 'free' },
+  firmSize:  { type: String, enum: ['solo', '2-5', '6-20', '20+'], default: 'solo' },
+  country:   { type: String, default: 'Pakistan' },
+  practiceAreas: { type: [String], default: [] },
+
   // Firm profile
   name:         { type: String, default: 'My Law Firm' },
   address:      { type: String },
