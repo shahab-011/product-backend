@@ -215,6 +215,21 @@ app.use('/api/collaboration', require('./routes/collaboration.routes'));
 app.use('/api/messages',     require('./routes/messages.routes'));
 app.use('/api/graph',        require('./routes/graph.routes'));
 
+/* ── Practice Management ───────────────────────────────────────────── */
+app.use('/api/matters',          require('./routes/matters.routes'));
+app.use('/api/contacts',         require('./routes/contacts.routes'));
+app.use('/api/tasks',            require('./routes/tasks.routes'));
+app.use('/api/calendar-events',  require('./routes/calendar.routes'));
+app.use('/api',                  require('./routes/timeTracking.routes'));
+app.use('/api',                  require('./routes/billing.routes'));
+app.use('/api/leads',            require('./routes/leads.routes'));
+app.use('/api/communications',   require('./routes/communications.routes'));
+app.use('/api/doc-templates',    require('./routes/templates.routes'));
+app.use('/api/esign-requests',   require('./routes/esign.routes'));
+app.use('/api/firm',             require('./routes/firm.routes'));
+app.use('/api/conflicts',        require('./routes/conflicts.routes'));
+app.use('/api/reports',          require('./routes/reports.routes'));
+
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'NyayaAI API running', version: '1.0.0' });
 });
