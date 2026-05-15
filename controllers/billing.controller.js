@@ -149,7 +149,8 @@ exports.listTrustAccounts = async (req, res) => {
 };
 
 exports.trustDeposit = async (req, res) => {
-  const { trustAccountId, amount, description, matterId, date } = req.body;
+  const trustAccountId = req.params.accountId;
+  const { amount, description, matterId, date } = req.body;
   if (!amount || amount <= 0) return sendError(res, 'Invalid amount', 400);
 
   const account = await TrustAccount.findOne({ _id: trustAccountId, firmId: req.user._id });
@@ -167,7 +168,8 @@ exports.trustDeposit = async (req, res) => {
 };
 
 exports.trustTransfer = async (req, res) => {
-  const { trustAccountId, amount, description, matterId } = req.body;
+  const trustAccountId = req.params.accountId;
+  const { amount, description, matterId } = req.body;
   if (!amount || amount <= 0) return sendError(res, 'Invalid amount', 400);
 
   const account = await TrustAccount.findOne({ _id: trustAccountId, firmId: req.user._id });
