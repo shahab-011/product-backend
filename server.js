@@ -221,7 +221,7 @@ app.use('/api/graph',        require('./routes/graph.routes'));
 app.use('/api/matters',          require('./routes/matters.routes'));
 app.use('/api/contacts',         require('./routes/contacts.routes'));
 app.use('/api/tasks',            require('./routes/tasks.routes'));
-app.use('/api/calendar-events',  require('./routes/calendar.routes'));
+app.use('/api',                  require('./routes/calendar.routes'));
 app.use('/api',                  require('./routes/timeTracking.routes'));
 app.use('/api',                  require('./routes/billing.routes'));
 app.use('/api',                  require('./routes/trust.routes'));
