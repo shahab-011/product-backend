@@ -228,7 +228,7 @@ app.use('/api',                  require('./routes/trust.routes'));
 app.use('/api/leads',            require('./routes/leads.routes'));
 app.use('/api/communications',   require('./routes/communications.routes'));
 app.use('/api',                  require('./routes/templates.routes'));
-app.use('/api/esign-requests',   require('./routes/esign.routes'));
+app.use('/api',                  require('./routes/esign.routes'));
 app.use('/api/firm',             require('./routes/firm.routes'));
 app.use('/api/conflicts',        require('./routes/conflicts.routes'));
 app.use('/api/reports',          require('./routes/reports.routes'));
