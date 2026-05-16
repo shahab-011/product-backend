@@ -30,10 +30,4 @@ router.post('/invoices/:id/credit-note',         ...auth, ctrl.issueCreditNote);
 // Credit notes
 router.get('/credit-notes', ...auth, ctrl.listCreditNotes);
 
-// Trust accounting
-router.get('/trust-accounts',                           ...auth, ctrl.listTrustAccounts);
-router.post('/trust-accounts/:accountId/deposit',       ...auth, ctrl.trustDeposit);
-router.post('/trust-accounts/:accountId/transfer',      ...auth, ctrl.trustTransfer);
-router.get('/trust-accounts/:accountId/reconciliation', ...auth, ctrl.reconciliation);
-
 module.exports = router;

@@ -224,6 +224,7 @@ app.use('/api/tasks',            require('./routes/tasks.routes'));
 app.use('/api/calendar-events',  require('./routes/calendar.routes'));
 app.use('/api',                  require('./routes/timeTracking.routes'));
 app.use('/api',                  require('./routes/billing.routes'));
+app.use('/api',                  require('./routes/trust.routes'));
 app.use('/api/leads',            require('./routes/leads.routes'));
 app.use('/api/communications',   require('./routes/communications.routes'));
 app.use('/api/doc-templates',    require('./routes/templates.routes'));
