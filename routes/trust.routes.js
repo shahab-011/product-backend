@@ -25,4 +25,13 @@ router.post('/trust-accounts/:id/reconcile',     ...auth, ctrl.performReconcilia
 
 router.patch('/trust-accounts/:id/transactions/:txId/void', ...auth, ctrl.voidTransaction);
 
+// Payment requests
+router.post('/trust-accounts/:id/request-payment',           ...auth, ctrl.requestPayment);
+router.get('/trust-accounts/:id/payment-requests',           ...auth, ctrl.listPaymentRequests);
+router.patch('/trust-accounts/:id/payment-requests/:reqId/cancel', ...auth, ctrl.cancelPaymentRequest);
+
+// Public payment portal (no auth)
+router.get('/trust-pay/:token',  ctrl.getPublicPaymentRequest);
+router.post('/trust-pay/:token', ctrl.submitPublicPayment);
+
 module.exports = router;

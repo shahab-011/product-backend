@@ -7,9 +7,11 @@ const TaskListSchema = new mongoose.Schema({
   name:         { type: String, required: true, trim: true, maxlength: 200 },
   description:  { type: String, maxlength: 1000 },
   order:        { type: Number, default: 0 },
-  isTemplate:   { type: Boolean, default: false, index: true },
-  templateName: { type: String },
-  isDeleted:    { type: Boolean, default: false, index: true },
+  isTemplate:          { type: Boolean, default: false, index: true },
+  templateName:        { type: String },
+  triggerStage:        { type: String },
+  triggerPracticeArea: { type: String },
+  isDeleted:           { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
 TaskListSchema.index({ firmId: 1, matterId: 1 });

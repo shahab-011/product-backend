@@ -1,6 +1,10 @@
 const Matter      = require('../models/Matter.model');
 const Contact     = require('../models/Contact.model');
 const CustomField = require('../models/CustomField.model');
+const TaskList    = require('../models/TaskList.model');
+const Task        = require('../models/Task.model');
+const TimeEntry   = require('../models/TimeEntry.model');
+const Invoice     = require('../models/Invoice.model');
 const { sendSuccess, sendError } = require('../utils/response');
 
 const PRACTICE_AREAS = [
@@ -40,13 +44,34 @@ exports.list = async (req, res) => {
 };
 
 exports.get = async (req, res) => {
-  const matter = await Matter.findOne({ _id: req.params.id, firmId: getFirmId(req), isDeleted: { $ne: true } })
+  const firmId = getFirmId(req);
+  const matter = await Matter.findOne({ _id: req.params.id, firmId, isDeleted: { $ne: true } })
     .populate('clientId', 'firstName lastName company email phone')
     .populate('coClients', 'firstName lastName company email')
     .populate('assignedTo', 'name email role')
+    .populate('originatingAttorney', 'name email')
+    .populate('relatedMatters', 'title matterNumber status')
     .lean();
   if (!matter) return sendError(res, 'Matter not found', 404);
-  sendSuccess(res, matter, 'Matter fetched');
+
+  // Budget utilization
+  let budgetUtilization = null;
+  if (matter.budgetHours || matter.budgetFees) {
+    const [entries, invoices] = await Promise.all([
+      TimeEntry.find({ matterId: matter._id, isDeleted: { $ne: true } }).lean(),
+      Invoice.find({ matterId: matter._id, isDeleted: { $ne: false }, status: { $ne: 'void' } }).lean(),
+    ]);
+    const hoursUsed = +entries.reduce((s, e) => s + (e.hours || 0), 0).toFixed(2);
+    const feesBilled = +invoices.reduce((s, i) => s + (i.total || 0), 0).toFixed(2);
+    budgetUtilization = {
+      hoursUsed,
+      feesBilled,
+      hoursPercent:  matter.budgetHours ? Math.round(hoursUsed / matter.budgetHours * 100) : null,
+      feesPercent:   matter.budgetFees  ? Math.round(feesBilled / matter.budgetFees * 100)  : null,
+    };
+  }
+
+  sendSuccess(res, { ...matter, budgetUtilization }, 'Matter fetched');
 };
 
 exports.create = async (req, res) => {
@@ -58,15 +83,44 @@ exports.create = async (req, res) => {
 };
 
 exports.update = async (req, res) => {
+  const firmId = getFirmId(req);
   const { closureReason, closureNotes, isDeleted, ...body } = req.body;
+
+  const before = await Matter.findOne({ _id: req.params.id, firmId, isDeleted: { $ne: true } }).lean();
+  if (!before) return sendError(res, 'Matter not found', 404);
+
   const matter = await Matter.findOneAndUpdate(
-    { _id: req.params.id, firmId: getFirmId(req), isDeleted: { $ne: true } },
+    { _id: req.params.id, firmId, isDeleted: { $ne: true } },
     body,
     { new: true, runValidators: true }
   )
     .populate('clientId', 'firstName lastName company email')
     .populate('assignedTo', 'name email role');
   if (!matter) return sendError(res, 'Matter not found', 404);
+
+  // Auto-apply task templates when stage changes
+  if (body.stage && body.stage !== before.stage) {
+    const templates = await TaskList.find({
+      firmId, isTemplate: true, isDeleted: { $ne: true }, triggerStage: body.stage,
+      $or: [{ triggerPracticeArea: { $exists: false } }, { triggerPracticeArea: '' }, { triggerPracticeArea: matter.practiceArea }],
+    }).lean();
+
+    for (const tpl of templates) {
+      const newList = await TaskList.create({
+        firmId, matterId: matter._id,
+        name: tpl.name, description: tpl.description,
+        isTemplate: false, templateName: tpl.name, order: tpl.order,
+      });
+      const tplTasks = await Task.find({ taskListId: tpl._id, isDeleted: { $ne: true } }).lean();
+      if (tplTasks.length) {
+        await Task.insertMany(tplTasks.map(({ _id, completedAt, completedBy, ...t }) => ({
+          ...t, firmId, matterId: matter._id, taskListId: newList._id,
+          createdBy: req.user._id, status: 'to_do', isDeleted: false,
+        })));
+      }
+    }
+  }
+
   sendSuccess(res, matter, 'Matter updated');
 };
 

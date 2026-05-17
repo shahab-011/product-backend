@@ -1,8 +1,16 @@
-const TimeEntry = require('../models/TimeEntry.model');
-const Timer     = require('../models/Timer.model');
-const Expense   = require('../models/Expense.model');
-const Matter    = require('../models/Matter.model');
+const TimeEntry     = require('../models/TimeEntry.model');
+const Timer         = require('../models/Timer.model');
+const Expense       = require('../models/Expense.model');
+const Matter        = require('../models/Matter.model');
+const FirmSettings  = require('../models/FirmSettings.model');
 const { sendSuccess, sendError } = require('../utils/response');
+
+function applyRounding(hours, roundTo) {
+  if (!roundTo || roundTo <= 1) return hours;
+  const mins    = hours * 60;
+  const rounded = Math.ceil(mins / roundTo) * roundTo;
+  return +(rounded / 60).toFixed(4);
+}
 
 const getFirmId = (req) => req.user.firmId || req.user._id;
 
@@ -54,7 +62,17 @@ exports.create = async (req, res) => {
     const matter = await Matter.findOne({ _id: req.body.matterId, firmId, isDeleted: { $ne: true } });
     if (!matter) return sendError(res, 'Matter not found', 404);
   }
-  const entry = await TimeEntry.create({ ...req.body, firmId, userId: req.user._id });
+
+  let { hours, rate, amount, ...rest } = req.body;
+
+  // Apply firm time-rounding rule
+  const settings = await FirmSettings.findOne({ firmId }).lean();
+  if (settings?.timeRounding?.enabled && hours) {
+    hours  = applyRounding(Number(hours), settings.timeRounding.roundTo);
+    amount = rate ? +(hours * Number(rate)).toFixed(2) : amount;
+  }
+
+  const entry = await TimeEntry.create({ ...rest, hours, rate, amount, firmId, userId: req.user._id });
   sendSuccess(res, entry, 'Time entry created', 201);
 };
 

@@ -1,6 +1,10 @@
-const TrustAccount    = require('../models/TrustAccount.model');
-const TrustTransaction= require('../models/TrustTransaction.model');
+const crypto                 = require('crypto');
+const TrustAccount           = require('../models/TrustAccount.model');
+const TrustTransaction       = require('../models/TrustTransaction.model');
+const TrustPaymentRequest    = require('../models/TrustPaymentRequest.model');
+const FirmSettings           = require('../models/FirmSettings.model');
 const { sendSuccess, sendError } = require('../utils/response');
+const { sendTrustPaymentRequest } = require('../utils/email');
 
 const getFirmId = (req) => req.user.firmId || req.user._id;
 
@@ -269,4 +273,108 @@ exports.getReconciliationReport = async (req, res) => {
     .populate('reconciliations.performedBy', 'name').lean();
   if (!account) return sendError(res, 'Trust account not found', 404);
   sendSuccess(res, { account, reconciliations: account.reconciliations || [] }, 'Reconciliation report fetched');
+};
+
+/* ── Trust Payment Requests ────────────────────────────────────── */
+exports.requestPayment = async (req, res) => {
+  const firmId = getFirmId(req);
+  const { amount, description, clientEmail, clientName, matterId, message } = req.body;
+  if (!amount || !clientEmail) return sendError(res, 'amount and clientEmail required', 400);
+
+  const account = await TrustAccount.findOne({ _id: req.params.id, firmId }).lean();
+  if (!account) return sendError(res, 'Trust account not found', 404);
+
+  const settings  = await FirmSettings.findOne({ firmId }).lean();
+  const firmName  = settings?.name || 'Your Law Firm';
+  const token     = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  const request = await TrustPaymentRequest.create({
+    firmId, trustAccountId: account._id, matterId: matterId || undefined,
+    requestedBy: req.user._id, clientEmail, clientName,
+    amount: parseFloat(amount), description, message, token, expiresAt,
+  });
+
+  const payUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/trust-pay/${token}`;
+
+  try {
+    await sendTrustPaymentRequest(clientEmail, clientName || 'Client', {
+      firmName, amount: parseFloat(amount), description, message, payUrl,
+      accountName: account.accountName,
+    });
+  } catch (e) {
+    console.error('Trust payment email failed:', e.message);
+  }
+
+  sendSuccess(res, { request, payUrl }, 'Payment request sent');
+};
+
+exports.listPaymentRequests = async (req, res) => {
+  const firmId   = getFirmId(req);
+  const requests = await TrustPaymentRequest.find({ firmId, trustAccountId: req.params.id })
+    .populate('matterId', 'title matterNumber')
+    .populate('requestedBy', 'name')
+    .sort({ createdAt: -1 })
+    .lean();
+  sendSuccess(res, requests, 'Payment requests fetched');
+};
+
+exports.cancelPaymentRequest = async (req, res) => {
+  const firmId  = getFirmId(req);
+  const request = await TrustPaymentRequest.findOneAndUpdate(
+    { _id: req.params.reqId, firmId, status: 'pending' },
+    { status: 'cancelled' },
+    { new: true }
+  );
+  if (!request) return sendError(res, 'Payment request not found', 404);
+  sendSuccess(res, request, 'Payment request cancelled');
+};
+
+/* ── Public: view + submit trust payment ───────────────────────── */
+exports.getPublicPaymentRequest = async (req, res) => {
+  const request = await TrustPaymentRequest.findOne({ token: req.params.token, status: 'pending' })
+    .populate('firmId', 'name')
+    .lean();
+  if (!request) return sendError(res, 'Payment link is invalid or has expired', 404);
+  if (request.expiresAt < new Date()) {
+    await TrustPaymentRequest.findByIdAndUpdate(request._id, { status: 'expired' });
+    return sendError(res, 'Payment link has expired', 410);
+  }
+  sendSuccess(res, {
+    amount:      request.amount,
+    description: request.description,
+    message:     request.message,
+    clientName:  request.clientName,
+    firmName:    request.firmId?.name || 'Law Firm',
+    expiresAt:   request.expiresAt,
+  }, 'Payment request loaded');
+};
+
+exports.submitPublicPayment = async (req, res) => {
+  const request = await TrustPaymentRequest.findOne({ token: req.params.token, status: 'pending' });
+  if (!request || request.expiresAt < new Date()) {
+    return sendError(res, 'Payment link is invalid or has expired', 410);
+  }
+  const { paymentMethod = 'other', transactionId, notes } = req.body;
+
+  // Record as trust deposit
+  const account = await TrustAccount.findById(request.trustAccountId);
+  if (account) {
+    const TrustTransaction = require('../models/TrustTransaction.model');
+    await TrustTransaction.create({
+      firmId: request.firmId, trustAccountId: account._id,
+      matterId: request.matterId, type: 'deposit',
+      amount: request.amount, description: request.description || 'Client trust payment',
+      paymentMethod, transactionId, notes,
+      date: new Date(), balanceAfter: account.balance + request.amount,
+    });
+    account.balance += request.amount;
+    await account.save();
+  }
+
+  await TrustPaymentRequest.findByIdAndUpdate(request._id, {
+    status: 'paid', paidAt: new Date(), paidVia: paymentMethod,
+  });
+
+  sendSuccess(res, { message: 'Payment recorded. Thank you.' }, 'Payment submitted');
 };

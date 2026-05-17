@@ -98,4 +98,63 @@ function sendAccountLockedEmail(to, name) {
   });
 }
 
-module.exports = { sendOTPEmail, sendPasswordResetEmail, sendInvitationEmail, sendAccountLockedEmail };
+/* ─── Trust payment request ──────────────────────────────────── */
+function sendTrustPaymentRequest(to, clientName, { firmName, amount, description, message, payUrl, accountName }) {
+  const fmt$ = n => '$' + Number(n).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return sendEmail({
+    to,
+    subject: `${firmName} — Trust Account Payment Request: ${fmt$(amount)}`,
+    text: `Hi ${clientName},\n\n${firmName} is requesting a trust account deposit of ${fmt$(amount)}.\n\nPurpose: ${description || '—'}\n${message ? `\n${message}\n` : ''}\nPay here: ${payUrl}\n\nThis link expires in 7 days.\n\n${firmName}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+        <h2 style="color:#7C3AED;margin-bottom:4px">Trust Account Payment Request</h2>
+        <p style="color:#6B7280;font-size:13px;margin-top:0">${firmName}</p>
+        <p style="color:#374151">Hi <strong>${clientName}</strong>,</p>
+        <p style="color:#374151">Your attorney is requesting a trust account deposit:</p>
+        <div style="background:#F5F3FF;border:1.5px solid #DDD6FE;border-radius:12px;padding:20px 24px;margin:20px 0">
+          <div style="font-size:32px;font-weight:900;color:#6D28D9;margin-bottom:6px">${fmt$(amount)}</div>
+          <div style="font-size:14px;color:#374151"><strong>Account:</strong> ${accountName}</div>
+          ${description ? `<div style="font-size:14px;color:#374151;margin-top:4px"><strong>Purpose:</strong> ${description}</div>` : ''}
+        </div>
+        ${message ? `<p style="color:#374151;font-size:14px;border-left:3px solid #DDD6FE;padding-left:12px;margin:16px 0">${message}</p>` : ''}
+        <div style="text-align:center;margin:28px 0">
+          <a href="${payUrl}" style="background:#7C3AED;color:#fff;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">Pay Now</a>
+        </div>
+        <p style="color:#6B7280;font-size:12px">If the button doesn't work: <a href="${payUrl}" style="color:#7C3AED">${payUrl}</a></p>
+        <p style="color:#9CA3AF;font-size:12px">This link expires in 7 days. If you have questions, contact ${firmName} directly.</p>
+      </div>`,
+  });
+}
+
+/* ─── Invoice payment reminder ───────────────────────────────── */
+function sendInvoiceReminder(to, clientName, { firmName, invoiceNumber, amount, dueDate, payUrl, isOverdue }) {
+  const fmt$ = n => '$' + Number(n).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const dueTxt = dueDate ? new Date(dueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—';
+  const subject = isOverdue
+    ? `Overdue Invoice ${invoiceNumber} — ${fmt$(amount)} — ${firmName}`
+    : `Payment Reminder: Invoice ${invoiceNumber} due ${dueTxt} — ${firmName}`;
+  return sendEmail({
+    to,
+    subject,
+    text: `Hi ${clientName},\n\n${isOverdue ? 'Your invoice is overdue.' : 'This is a reminder that your invoice is due soon.'}\n\nInvoice: ${invoiceNumber}\nAmount Due: ${fmt$(amount)}\nDue Date: ${dueTxt}\n\nPay here: ${payUrl || '—'}\n\n${firmName}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+        <h2 style="color:${isOverdue ? '#DC2626' : '#7C3AED'};margin-bottom:4px">${isOverdue ? 'Invoice Overdue' : 'Payment Reminder'}</h2>
+        <p style="color:#6B7280;font-size:13px;margin-top:0">${firmName}</p>
+        <p style="color:#374151">Hi <strong>${clientName}</strong>,</p>
+        <p style="color:#374151">${isOverdue ? 'Your invoice is past due. Please arrange payment at your earliest convenience.' : 'This is a friendly reminder that your invoice is due soon.'}</p>
+        <div style="background:${isOverdue ? '#FEF2F2' : '#F5F3FF'};border:1.5px solid ${isOverdue ? '#FECACA' : '#DDD6FE'};border-radius:12px;padding:20px 24px;margin:20px 0">
+          <div style="font-size:13px;color:#6B7280;margin-bottom:4px">Invoice ${invoiceNumber}</div>
+          <div style="font-size:28px;font-weight:900;color:${isOverdue ? '#DC2626' : '#6D28D9'}">${fmt$(amount)}</div>
+          <div style="font-size:13px;color:#374151;margin-top:6px">Due: ${dueTxt}</div>
+        </div>
+        ${payUrl ? `<div style="text-align:center;margin:24px 0"><a href="${payUrl}" style="background:${isOverdue ? '#DC2626' : '#7C3AED'};color:#fff;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">Pay Now</a></div>` : ''}
+        <p style="color:#9CA3AF;font-size:12px">Questions? Contact ${firmName} directly.</p>
+      </div>`,
+  });
+}
+
+module.exports = {
+  sendOTPEmail, sendPasswordResetEmail, sendInvitationEmail,
+  sendAccountLockedEmail, sendTrustPaymentRequest, sendInvoiceReminder,
+};

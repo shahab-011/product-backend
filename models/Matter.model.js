@@ -54,6 +54,20 @@ const MatterSchema = new mongoose.Schema({
 
   customFields: { type: Map, of: String, default: {} },
 
+  /* ── Budget tracking ── */
+  budgetHours:        { type: Number, default: 0 },
+  budgetFees:         { type: Number, default: 0 },
+  budgetAlertPercent: { type: Number, default: 80 },
+
+  /* ── Statute of limitations ── */
+  solDate:      { type: Date },
+  solNotes:     { type: String, maxlength: 1000 },
+  solAlertDays: { type: Number, default: 30 },
+
+  /* ── Relationships ── */
+  originatingAttorney: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  relatedMatters:      [{ type: mongoose.Schema.Types.ObjectId, ref: 'Matter' }],
+
   isDeleted: { type: Boolean, default: false },
 
   notes:     [NoteSchema],

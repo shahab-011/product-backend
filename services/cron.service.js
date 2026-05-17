@@ -1,6 +1,11 @@
-const cron = require('node-cron');
-const Document = require('../models/Document.model');
-const Alert = require('../models/Alert.model');
+const cron          = require('node-cron');
+const Document      = require('../models/Document.model');
+const Alert         = require('../models/Alert.model');
+const Invoice       = require('../models/Invoice.model');
+const Matter        = require('../models/Matter.model');
+const FirmSettings  = require('../models/FirmSettings.model');
+const Notification  = require('../models/Notification.model');
+const { sendInvoiceReminder } = require('../utils/email');
 
 /* ─────────────────────────────────────────────────────────────────────
  * Severity tiers — evaluated once per document per cron run.
@@ -179,6 +184,90 @@ async function runLifecycleScan() {
   console.log('  ─────────────────────────────────────────────\n');
 }
 
+/* ── Invoice payment reminder scan ────────────────────────────────── */
+
+async function runInvoiceReminderScan() {
+  const now = new Date();
+  // Find sent/overdue invoices whose nextReminderAt is due
+  const invoices = await Invoice.find({
+    status:        { $in: ['sent', 'partially_paid', 'overdue'] },
+    isDeleted:     { $ne: true },
+    nextReminderAt: { $lte: now },
+    clientEmail:   { $exists: true, $ne: '' },
+  }).lean();
+
+  let sent = 0;
+  for (const inv of invoices) {
+    try {
+      const settings = await FirmSettings.findOne({ firmId: inv.firmId }).lean();
+      if (!settings?.invoiceReminders?.enabled) continue;
+
+      const isOverdue = inv.status === 'overdue' || (inv.dueDate && new Date(inv.dueDate) < now);
+      const payUrl    = inv.paymentLink || null;
+
+      await sendInvoiceReminder(inv.clientEmail, inv.clientName || 'Client', {
+        firmName: settings.name || 'Your Law Firm',
+        invoiceNumber: inv.invoiceNumber,
+        amount:  inv.amountOutstanding,
+        dueDate: inv.dueDate,
+        payUrl,
+        isOverdue,
+      });
+
+      // Schedule next reminder 7 days out (or clear if paid)
+      const nextReminderAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      await Invoice.findByIdAndUpdate(inv._id, {
+        $push: { remindersSent: { type: isOverdue ? 'overdue' : 'upcoming', sentAt: now } },
+        nextReminderAt,
+      });
+      sent++;
+    } catch (e) {
+      console.error(`  ⚠ Invoice reminder failed for ${inv.invoiceNumber}:`, e.message);
+    }
+  }
+  if (sent) console.log(`  📧 Invoice reminders sent: ${sent}`);
+}
+
+/* ── SOL (Statute of Limitations) alert scan ──────────────────────── */
+
+async function runSOLAlertScan() {
+  const now = new Date();
+  const matters = await Matter.find({
+    solDate:   { $exists: true, $ne: null },
+    status:    { $in: ['active', 'pending', 'on_hold'] },
+    isDeleted: { $ne: true },
+  }).lean();
+
+  let created = 0;
+  for (const m of matters) {
+    const daysLeft = Math.ceil((new Date(m.solDate) - now) / 86400000);
+    const alertDays = m.solAlertDays || 30;
+    if (daysLeft < 0 || daysLeft > alertDays) continue;
+
+    // Check if we already sent an alert today for this matter
+    const dedupSince = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const exists = await Notification.findOne({
+      'metadata.matterId': m._id,
+      type:      'system_alert',
+      createdAt: { $gte: dedupSince },
+    });
+    if (exists) continue;
+
+    const severity = daysLeft <= 7 ? '🚨' : daysLeft <= 14 ? '⚠️' : '📅';
+    await Notification.create({
+      firmId:  m.firmId,
+      userId:  m.assignedTo?.[0] || m.firmId,
+      type:    'system_alert',
+      title:   `${severity} SOL Alert: "${m.title}"`,
+      message: `Statute of limitations expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''} (${new Date(m.solDate).toLocaleDateString()}).`,
+      metadata: { matterId: m._id },
+      isRead:  false,
+    });
+    created++;
+  }
+  if (created) console.log(`  ⚖️  SOL alerts created: ${created}`);
+}
+
 /* ── Schedule ─────────────────────────────────────────────────────── */
 
 exports.startCronJobs = () => {
@@ -187,12 +276,23 @@ exports.startCronJobs = () => {
     try {
       await runLifecycleScan();
     } catch (fatalErr) {
-      // Absolute last-resort catch — the server must never crash from a cron error
       console.error('❌ CRON FATAL (unreachable):', fatalErr.message);
     }
   });
 
-  console.log('✅ Cron jobs scheduled — nightly scan at 00:00');
+  // Every day at 08:00 — invoice reminders + SOL alerts
+  cron.schedule('0 8 * * *', async () => {
+    try {
+      console.log('\n⏰ Practice management daily scan starting…');
+      await runInvoiceReminderScan();
+      await runSOLAlertScan();
+      console.log('  ✅ Practice management scan complete\n');
+    } catch (e) {
+      console.error('❌ Practice scan failed:', e.message);
+    }
+  });
+
+  console.log('✅ Cron jobs scheduled — nightly scan 00:00, practice scan 08:00');
 };
 
 // Exported for manual testing: require('../services/cron.service').runLifecycleScan()

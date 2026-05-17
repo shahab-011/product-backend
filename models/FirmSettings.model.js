@@ -80,6 +80,21 @@ const FirmSettingsSchema = new mongoose.Schema({
   stripeAccountId:        { type: String },
   stripeOnboarded:        { type: Boolean, default: false },
 
+  /* ── Time rounding ── */
+  timeRounding: {
+    enabled: { type: Boolean, default: false },
+    roundTo: { type: Number, enum: [1, 6, 10, 15, 30], default: 6 },
+  },
+
+  /* ── Invoice reminder schedules ── */
+  invoiceReminders: {
+    enabled: { type: Boolean, default: false },
+    schedules: [{
+      daysOffset: { type: Number },
+      label:      { type: String },
+    }],
+  },
+
   /* ── Security ── */
   security: {
     enforce2FA:            { type: Boolean, default: false },
