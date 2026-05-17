@@ -1,8 +1,12 @@
 const Groq = require('groq-sdk');
 const { getFirstChunks, prepareContext } = require('./chunker.service');
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+let _groq = null;
 const MODEL = 'llama-3.3-70b-versatile';
+function getGroq() {
+  if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  return _groq;
+}
 
 const safeJsonParse = (text) => {
   const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -42,7 +46,7 @@ function cleanExtractedText(raw) {
 }
 
 async function callGroq(prompt, temperature = 0.2, maxTokens = 4096) {
-  const completion = await groq.chat.completions.create({
+  const completion = await getGroq().chat.completions.create({
     model: MODEL,
     temperature,
     max_tokens: maxTokens,

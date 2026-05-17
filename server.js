@@ -13,7 +13,8 @@ const xss = require('xss-clean');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const connectDB = require('./config/db');
-const { errorHandler } = require('./middleware/error.middleware');
+const { errorHandler, notFound } = require('./middleware/error.middleware');
+const auditLog = require('./middleware/auditLog.middleware');
 const { startCronJobs, runLifecycleScan } = require('./services/cron.service');
 
 const app = express();
@@ -245,6 +246,10 @@ app.use('/api',                  require('./routes/portal.routes'));
 app.use('/api/ai',               require('./routes/ai.routes'));
 app.use('/api/notifications',    require('./routes/notifications.routes'));
 app.use('/api/accounting',       require('./routes/accounting.routes'));
+app.use('/api/search',           require('./routes/search.routes'));
+
+// Audit log — applied after auth middleware resolves req.user
+app.use(auditLog);
 
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'NyayaAI API running', version: '1.0.0' });
@@ -280,6 +285,7 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
