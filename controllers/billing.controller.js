@@ -206,6 +206,10 @@ exports.markPaid = async (req, res) => {
   if (invoice.amountOutstanding <= 0) {
     invoice.status = 'paid';
     invoice.paidAt = new Date();
+    // Auto-post accounting entry: DR Cash, CR AR
+    require('./accounting.controller').postFromInvoice(
+      invoice.firmId, invoice._id, amount
+    ).catch(() => {});
   } else if (invoice.amountPaid > 0) {
     invoice.status = 'partially_paid';
   }

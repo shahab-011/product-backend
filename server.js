@@ -244,6 +244,7 @@ app.use('/api',                  require('./routes/practiceDocuments.routes'));
 app.use('/api',                  require('./routes/portal.routes'));
 app.use('/api/ai',               require('./routes/ai.routes'));
 app.use('/api/notifications',    require('./routes/notifications.routes'));
+app.use('/api/accounting',       require('./routes/accounting.routes'));
 
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'NyayaAI API running', version: '1.0.0' });
