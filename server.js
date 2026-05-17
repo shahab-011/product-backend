@@ -37,11 +37,12 @@ app.set('io', io);
 
 /* ── Socket.io auth middleware ─────────────────────────────────────── */
 io.use((socket, next) => {
-  const { token, userName } = socket.handshake.auth;
+  const { token, userName, firmId } = socket.handshake.auth;
   if (!token) return next(new Error('Unauthorized — no token'));
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.userId   = String(decoded.id);
+    socket.firmId   = firmId ? String(firmId) : socket.userId;
     socket.userName = userName || 'Anonymous';
     next();
   } catch {
@@ -61,6 +62,10 @@ function broadcastPresence(roomId) {
 
 io.on('connection', (socket) => {
   console.log(`🔌 Socket connected: ${socket.id} (${socket.userName})`);
+
+  // Auto-join personal room and firm room for notifications
+  socket.join(`user_${socket.userId}`);
+  socket.join(`firm_${socket.firmId}`);
 
   socket.on('join-room', (roomId) => {
     socket.join(roomId);
@@ -238,6 +243,7 @@ app.use('/api/reports',          require('./routes/reports.routes'));
 app.use('/api',                  require('./routes/practiceDocuments.routes'));
 app.use('/api',                  require('./routes/portal.routes'));
 app.use('/api/ai',               require('./routes/ai.routes'));
+app.use('/api/notifications',    require('./routes/notifications.routes'));
 
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'NyayaAI API running', version: '1.0.0' });
