@@ -15,12 +15,11 @@ const CreditNoteSchema = new mongoose.Schema({
   issuedAt:         { type: Date, default: Date.now },
 }, { timestamps: true });
 
-CreditNoteSchema.pre('save', async function (next) {
+CreditNoteSchema.pre('save', async function () {
   if (!this.creditNoteNumber) {
     const count = await mongoose.model('CreditNote').countDocuments({ firmId: this.firmId });
     this.creditNoteNumber = `CN-${String(count + 1).padStart(4, '0')}`;
   }
-  next();
 });
 
 CreditNoteSchema.index({ firmId: 1, invoiceId: 1 });

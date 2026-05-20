@@ -75,12 +75,11 @@ const MatterSchema = new mongoose.Schema({
   tags:      [String],
 }, { timestamps: true });
 
-MatterSchema.pre('save', async function (next) {
-  if (this.matterNumber) return next();
+MatterSchema.pre('save', async function () {
+  if (this.matterNumber) return;
   const count = await mongoose.model('Matter').countDocuments({ firmId: this.firmId });
   const year  = new Date().getFullYear();
   this.matterNumber = `M-${year}-${String(count + 1).padStart(3, '0')}`;
-  next();
 });
 
 MatterSchema.index({ firmId: 1, status: 1, isDeleted: 1 });

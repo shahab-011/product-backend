@@ -109,7 +109,7 @@ const InvoiceSchema = new mongoose.Schema({
   isDeleted: { type: Boolean, default: false },
 }, { timestamps: true });
 
-InvoiceSchema.pre('save', async function (next) {
+InvoiceSchema.pre('save', async function () {
   if (!this.invoiceNumber) {
     const count = await mongoose.model('Invoice').countDocuments({ firmId: this.firmId });
     this.invoiceNumber = `INV-${String(count + 1).padStart(4, '0')}`;
@@ -136,8 +136,6 @@ InvoiceSchema.pre('save', async function (next) {
   this.amountPaid      = +(this.payments || []).reduce((s, p) => s + (p.amount || 0), 0).toFixed(2);
   this.amountDue       = +(this.total + (this.previousBalance || 0) - (this.trustApplied || 0)).toFixed(2);
   this.amountOutstanding = +(this.amountDue - this.amountPaid).toFixed(2);
-
-  next();
 });
 
 InvoiceSchema.index({ firmId: 1, status: 1 });
