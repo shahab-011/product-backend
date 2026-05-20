@@ -5,8 +5,10 @@ const TrustTransaction= require('../models/TrustTransaction.model');
 const TimeEntry       = require('../models/TimeEntry.model');
 const Expense         = require('../models/Expense.model');
 const Matter          = require('../models/Matter.model');
+const User            = require('../models/User.model');
 const crypto          = require('crypto');
 const { sendSuccess, sendError } = require('../utils/response');
+const { sendInvoiceEmail } = require('../utils/email');
 
 const getFirmId = (req) => req.user.firmId || req.user._id;
 
@@ -181,13 +183,29 @@ exports.deleteInvoice = async (req, res) => {
 
 /* ── Send ──────────────────────────────────────────────────────── */
 exports.sendInvoice = async (req, res) => {
-  const invoice = await Invoice.findOne({ _id: req.params.id, firmId: getFirmId(req), isDeleted: { $ne: true } });
+  const firmId = getFirmId(req);
+  const invoice = await Invoice.findOne({ _id: req.params.id, firmId, isDeleted: { $ne: true } });
   if (!invoice) return sendError(res, 'Invoice not found', 404);
   if (invoice.status === 'void') return sendError(res, 'Cannot send a voided invoice', 400);
   if (!invoice.paymentToken) invoice.paymentToken = crypto.randomBytes(24).toString('hex');
+  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  invoice.paymentLink = `${baseUrl}/pay/${invoice.paymentToken}`;
   invoice.status = 'sent';
   invoice.sentAt = new Date();
   await invoice.save();
+
+  if (invoice.clientEmail) {
+    const firm = await User.findById(firmId).select('name firmName').lean();
+    sendInvoiceEmail(invoice.clientEmail, invoice.clientName || 'Client', {
+      firmName:      firm?.firmName || firm?.name || 'Your Law Firm',
+      invoiceNumber: invoice.invoiceNumber,
+      amount:        invoice.amountOutstanding ?? invoice.total,
+      dueDate:       invoice.dueDate,
+      payUrl:        invoice.paymentLink,
+      notes:         invoice.notes,
+    }).catch(() => {});
+  }
+
   sendSuccess(res, invoice, 'Invoice sent');
 };
 

@@ -154,7 +154,61 @@ function sendInvoiceReminder(to, clientName, { firmName, invoiceNumber, amount, 
   });
 }
 
+/* ─── Invoice sent to client ─────────────────────────────────── */
+function sendInvoiceEmail(to, clientName, { firmName, invoiceNumber, amount, dueDate, payUrl, notes }) {
+  const fmt$ = n => '$' + Number(n || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const dueTxt = dueDate ? new Date(dueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—';
+  return sendEmail({
+    to,
+    subject: `Invoice ${invoiceNumber} from ${firmName} — ${fmt$(amount)} due ${dueTxt}`,
+    text: `Hi ${clientName},\n\nPlease find your invoice from ${firmName}.\n\nInvoice: ${invoiceNumber}\nAmount Due: ${fmt$(amount)}\nDue Date: ${dueTxt}\n${notes ? `\nNotes: ${notes}\n` : ''}\nPay online: ${payUrl || '—'}\n\nThank you,\n${firmName}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+        <h2 style="color:#7C3AED;margin-bottom:4px">Invoice from ${firmName}</h2>
+        <p style="color:#374151">Hi <strong>${clientName}</strong>,</p>
+        <p style="color:#374151">Please find your invoice details below.</p>
+        <div style="background:#F5F3FF;border:1.5px solid #DDD6FE;border-radius:12px;padding:20px 24px;margin:20px 0">
+          <div style="font-size:13px;color:#6B7280;margin-bottom:4px">Invoice ${invoiceNumber}</div>
+          <div style="font-size:32px;font-weight:900;color:#6D28D9">${fmt$(amount)}</div>
+          <div style="font-size:13px;color:#374151;margin-top:6px">Due: ${dueTxt}</div>
+        </div>
+        ${notes ? `<p style="color:#374151;font-size:13px;border-left:3px solid #DDD6FE;padding-left:12px">${notes}</p>` : ''}
+        ${payUrl ? `<div style="text-align:center;margin:24px 0"><a href="${payUrl}" style="background:#7C3AED;color:#fff;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">Pay Now</a></div>` : ''}
+        ${payUrl ? `<p style="color:#6B7280;font-size:12px">Or copy this link: <a href="${payUrl}" style="color:#7C3AED">${payUrl}</a></p>` : ''}
+        <p style="color:#9CA3AF;font-size:12px">Questions? Contact ${firmName} directly.</p>
+      </div>`,
+  });
+}
+
+/* ─── E-sign invitation ──────────────────────────────────────── */
+function sendESignInviteEmail(to, signatoryName, { firmName, title, description, sigUrl, expiresAt }) {
+  const expTxt = expiresAt ? new Date(expiresAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  return sendEmail({
+    to,
+    subject: `${firmName} is requesting your signature on "${title}"`,
+    text: `Hi ${signatoryName},\n\n${firmName} has requested your electronic signature on the following document:\n\n${title}\n${description ? description + '\n' : ''}\nSign here: ${sigUrl}\n${expTxt ? `This link expires on ${expTxt}.\n` : ''}\n${firmName}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+        <h2 style="color:#4F46E5;margin-bottom:4px">Signature Requested</h2>
+        <p style="color:#6B7280;font-size:13px;margin-top:0">${firmName}</p>
+        <p style="color:#374151">Hi <strong>${signatoryName}</strong>,</p>
+        <p style="color:#374151"><strong>${firmName}</strong> is requesting your electronic signature on the following document:</p>
+        <div style="background:#EEF2FF;border:1.5px solid #C7D2FE;border-radius:12px;padding:20px 24px;margin:20px 0">
+          <div style="font-size:17px;font-weight:800;color:#312E81">${title}</div>
+          ${description ? `<div style="font-size:13px;color:#4338CA;margin-top:6px">${description}</div>` : ''}
+        </div>
+        <div style="text-align:center;margin:28px 0">
+          <a href="${sigUrl}" style="background:#4F46E5;color:#fff;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">Review &amp; Sign</a>
+        </div>
+        <p style="color:#6B7280;font-size:12px">Or copy this link: <a href="${sigUrl}" style="color:#4F46E5">${sigUrl}</a></p>
+        ${expTxt ? `<p style="color:#9CA3AF;font-size:12px">This signing link expires on ${expTxt}.</p>` : ''}
+        <p style="color:#9CA3AF;font-size:12px">Questions? Contact ${firmName} directly.</p>
+      </div>`,
+  });
+}
+
 module.exports = {
   sendOTPEmail, sendPasswordResetEmail, sendInvitationEmail,
   sendAccountLockedEmail, sendTrustPaymentRequest, sendInvoiceReminder,
+  sendInvoiceEmail, sendESignInviteEmail,
 };

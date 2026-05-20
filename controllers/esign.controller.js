@@ -1,6 +1,8 @@
 const crypto       = require('crypto');
 const ESignRequest = require('../models/ESignRequest.model');
+const User         = require('../models/User.model');
 const { sendSuccess, sendError } = require('../utils/response');
+const { sendESignInviteEmail } = require('../utils/email');
 
 const getFirmId = req => req.user.firmId || req.user._id;
 
@@ -113,6 +115,18 @@ exports.send = async (req, res) => {
     sigUrl: `${frontendUrl}/esign/sign/${s.token}`,
   }));
 
+  const firm = await User.findById(request.firmId).select('name firmName').lean();
+  const firmName = firm?.firmName || firm?.name || 'Your Law Firm';
+  links.forEach(({ name, email, sigUrl }) => {
+    sendESignInviteEmail(email, name, {
+      firmName,
+      title:       request.title,
+      description: request.description,
+      sigUrl,
+      expiresAt:   request.expiresAt,
+    }).catch(() => {});
+  });
+
   sendSuccess(res, { request, signingLinks: links }, 'E-sign request sent to signatories');
 };
 
@@ -162,6 +176,22 @@ exports.resend = async (req, res) => {
     time:       new Date(),
   });
   await request.save();
+
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const firm = await User.findById(request.firmId).select('name firmName').lean();
+  const firmName = firm?.firmName || firm?.name || 'Your Law Firm';
+  request.signatories
+    .filter(s => s.status === 'pending')
+    .forEach(s => {
+      sendESignInviteEmail(s.email, s.name, {
+        firmName,
+        title:       request.title,
+        description: request.description,
+        sigUrl:      `${frontendUrl}/esign/sign/${s.token}`,
+        expiresAt:   request.expiresAt,
+      }).catch(() => {});
+    });
+
   sendSuccess(res, request, 'Resent to unsigned signatories');
 };
 
