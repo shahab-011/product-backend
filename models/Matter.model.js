@@ -77,9 +77,16 @@ const MatterSchema = new mongoose.Schema({
 
 MatterSchema.pre('save', async function () {
   if (this.matterNumber) return;
-  const count = await mongoose.model('Matter').countDocuments({ firmId: this.firmId });
-  const year  = new Date().getFullYear();
-  this.matterNumber = `M-${year}-${String(count + 1).padStart(3, '0')}`;
+  const year   = new Date().getFullYear();
+  const latest = await mongoose.model('Matter')
+    .findOne({ firmId: this.firmId, matterNumber: { $regex: `^M-${year}-` } })
+    .sort({ matterNumber: -1 })
+    .select('matterNumber')
+    .lean();
+  const seq = latest?.matterNumber
+    ? (parseInt(latest.matterNumber.split('-').pop(), 10) || 0) + 1
+    : 1;
+  this.matterNumber = `M-${year}-${String(seq).padStart(3, '0')}`;
 });
 
 MatterSchema.index({ firmId: 1, status: 1, isDeleted: 1 });

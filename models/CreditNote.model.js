@@ -17,8 +17,15 @@ const CreditNoteSchema = new mongoose.Schema({
 
 CreditNoteSchema.pre('save', async function () {
   if (!this.creditNoteNumber) {
-    const count = await mongoose.model('CreditNote').countDocuments({ firmId: this.firmId });
-    this.creditNoteNumber = `CN-${String(count + 1).padStart(4, '0')}`;
+    const latest = await mongoose.model('CreditNote')
+      .findOne({ firmId: this.firmId, creditNoteNumber: { $exists: true } })
+      .sort({ creditNoteNumber: -1 })
+      .select('creditNoteNumber')
+      .lean();
+    const seq = latest?.creditNoteNumber
+      ? (parseInt(latest.creditNoteNumber.replace(/\D/g, ''), 10) || 0) + 1
+      : 1;
+    this.creditNoteNumber = `CN-${String(seq).padStart(4, '0')}`;
   }
 });
 

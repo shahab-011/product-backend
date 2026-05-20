@@ -111,8 +111,15 @@ const InvoiceSchema = new mongoose.Schema({
 
 InvoiceSchema.pre('save', async function () {
   if (!this.invoiceNumber) {
-    const count = await mongoose.model('Invoice').countDocuments({ firmId: this.firmId });
-    this.invoiceNumber = `INV-${String(count + 1).padStart(4, '0')}`;
+    const latest = await mongoose.model('Invoice')
+      .findOne({ firmId: this.firmId, invoiceNumber: { $exists: true } })
+      .sort({ invoiceNumber: -1 })
+      .select('invoiceNumber')
+      .lean();
+    const seq = latest?.invoiceNumber
+      ? (parseInt(latest.invoiceNumber.replace(/\D/g, ''), 10) || 0) + 1
+      : 1;
+    this.invoiceNumber = `INV-${String(seq).padStart(4, '0')}`;
   }
 
   this.subtotal = +this.lineItems.reduce((s, li) => s + (li.amount || 0), 0).toFixed(2);
