@@ -118,6 +118,36 @@ exports.completeTask = async (req, res) => {
     { new: true }
   ).populate(POPULATE);
   if (!task) return sendError(res, 'Task not found', 404);
+
+  if (task.recurrence?.frequency && task.dueDate) {
+    const { frequency, interval = 1, until } = task.recurrence;
+    const next = new Date(task.dueDate);
+    if (frequency === 'daily')   next.setDate(next.getDate() + interval);
+    else if (frequency === 'weekly')  next.setDate(next.getDate() + 7 * interval);
+    else if (frequency === 'monthly') next.setMonth(next.getMonth() + interval);
+    else if (frequency === 'yearly')  next.setFullYear(next.getFullYear() + interval);
+
+    if (!until || next <= new Date(until)) {
+      await Task.create({
+        firmId,
+        matterId:       task.matterId,
+        taskListId:     task.taskListId,
+        createdBy:      req.user._id,
+        assignedTo:     task.assignedTo,
+        title:          task.title,
+        description:    task.description,
+        priority:       task.priority,
+        activityType:   task.activityType,
+        estimatedHours: task.estimatedHours,
+        tags:           task.tags,
+        recurrence:     task.recurrence,
+        dueDate:        next,
+        order:          task.order,
+        status:         'to_do',
+      });
+    }
+  }
+
   sendSuccess(res, task, 'Task completed');
 };
 

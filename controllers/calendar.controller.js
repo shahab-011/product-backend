@@ -14,9 +14,20 @@ exports.getEventTypes = (req, res) => sendSuccess(res, EVENT_TYPES, 'Event types
 
 /* ── Events ──────────────────────────────────────────────────────── */
 
+function advanceDate(date, frequency, interval) {
+  const d = new Date(date);
+  if (frequency === 'daily')   d.setDate(d.getDate() + interval);
+  else if (frequency === 'weekly')  d.setDate(d.getDate() + 7 * interval);
+  else if (frequency === 'monthly') d.setMonth(d.getMonth() + interval);
+  else if (frequency === 'yearly')  d.setFullYear(d.getFullYear() + interval);
+  return d;
+}
+
 exports.listEvents = async (req, res) => {
   const firmId = getFirmId(req);
   const { from, to, matterId, eventType, limit = 500 } = req.query;
+  const windowStart = from ? new Date(from) : null;
+  const windowEnd   = to   ? new Date(to)   : null;
 
   const filter = {
     firmId,
@@ -25,11 +36,6 @@ exports.listEvents = async (req, res) => {
   };
   if (matterId)  filter.matterId  = matterId;
   if (eventType) filter.eventType = eventType;
-  if (from || to) {
-    filter.startDate = {};
-    if (from) filter.startDate.$gte = new Date(from);
-    if (to)   filter.startDate.$lte = new Date(to);
-  }
 
   const events = await CalendarEvent.find(filter)
     .populate('matterId', 'title matterNumber')
@@ -38,7 +44,33 @@ exports.listEvents = async (req, res) => {
     .limit(Number(limit))
     .lean();
 
-  sendSuccess(res, events, 'Events fetched');
+  const result = [];
+  for (const ev of events) {
+    const inWindow = start =>
+      (!windowStart || start >= windowStart) && (!windowEnd || start <= windowEnd);
+
+    if (!ev.recurrence?.frequency) {
+      if (inWindow(ev.startDate)) result.push(ev);
+      continue;
+    }
+
+    const { frequency, interval = 1, until } = ev.recurrence;
+    const cap = until ? new Date(until) : (windowEnd || new Date(Date.now() + 365 * 24 * 3600 * 1000));
+    let cur = new Date(ev.startDate);
+    let iterations = 0;
+    while (cur <= cap && iterations < 366) {
+      iterations++;
+      if (inWindow(cur)) {
+        const duration = ev.endDate ? (new Date(ev.endDate) - new Date(ev.startDate)) : 0;
+        result.push({ ...ev, startDate: new Date(cur), endDate: duration ? new Date(cur.getTime() + duration) : ev.endDate, _recurring: true });
+      }
+      if (windowEnd && cur > windowEnd) break;
+      cur = advanceDate(cur, frequency, interval);
+    }
+  }
+
+  result.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+  sendSuccess(res, result, 'Events fetched');
 };
 
 exports.getEvent = async (req, res) => {
