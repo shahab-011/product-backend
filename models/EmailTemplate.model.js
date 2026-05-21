@@ -11,11 +11,10 @@ const EmailTemplateSchema = new mongoose.Schema({
   usageCount:{ type: Number, default: 0 },
 }, { timestamps: true });
 
-EmailTemplateSchema.pre('save', function (next) {
+EmailTemplateSchema.pre('save', async function () {
   const matches = (this.body + ' ' + this.subject).match(/\{\{([^}]+)\}\}/g) || [];
   const extracted = [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, '').trim()))];
   if (extracted.length) this.variables = extracted;
-  next();
 });
 
 module.exports = mongoose.model('EmailTemplate', EmailTemplateSchema);

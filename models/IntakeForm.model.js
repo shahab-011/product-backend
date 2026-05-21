@@ -33,12 +33,11 @@ const IntakeFormSchema = new mongoose.Schema({
   isDeleted:      { type: Boolean, default: false },
 }, { timestamps: true });
 
-IntakeFormSchema.pre('save', function (next) {
+IntakeFormSchema.pre('save', async function () {
   if (!this.slug) {
     const base = this.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     this.slug = base + '-' + crypto.randomBytes(4).toString('hex');
   }
-  next();
 });
 
 module.exports = mongoose.model('IntakeForm', IntakeFormSchema);

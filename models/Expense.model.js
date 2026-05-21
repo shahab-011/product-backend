@@ -33,9 +33,8 @@ const ExpenseSchema = new mongoose.Schema({
   isDeleted: { type: Boolean, default: false },
 }, { timestamps: true });
 
-ExpenseSchema.pre('save', function (next) {
+ExpenseSchema.pre('save', async function () {
   this.taxAmount = +(this.amount * (this.taxRate || 0) / 100).toFixed(2);
-  next();
 });
 
 ExpenseSchema.index({ firmId: 1, matterId: 1 });

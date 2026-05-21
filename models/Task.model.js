@@ -57,7 +57,7 @@ const TaskSchema = new mongoose.Schema({
   isDeleted:    { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
-TaskSchema.pre('save', function (next) {
+TaskSchema.pre('save', async function () {
   if (this.isModified('status') && this.status === 'completed' && !this.completedAt) {
     this.completedAt = new Date();
   }
@@ -65,7 +65,6 @@ TaskSchema.pre('save', function (next) {
     this.completedAt = undefined;
     this.completedBy = undefined;
   }
-  next();
 });
 
 TaskSchema.index({ firmId: 1, status: 1 });

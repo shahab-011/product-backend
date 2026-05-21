@@ -32,10 +32,9 @@ const TimeEntrySchema = new mongoose.Schema({
   isDeleted: { type: Boolean, default: false },
 }, { timestamps: true });
 
-TimeEntrySchema.pre('save', function (next) {
+TimeEntrySchema.pre('save', async function () {
   this.amount    = +(this.hours * this.rate).toFixed(2);
   this.taxAmount = +(this.amount * (this.taxRate || 0) / 100).toFixed(2);
-  next();
 });
 
 TimeEntrySchema.index({ firmId: 1, matterId: 1 });

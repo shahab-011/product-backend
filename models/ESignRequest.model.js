@@ -55,13 +55,12 @@ const ESignRequestSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Auto-set expiresAt to 30 days from creation
-ESignRequestSchema.pre('save', function (next) {
+ESignRequestSchema.pre('save', async function () {
   if (!this.expiresAt) {
     const d = new Date();
     d.setDate(d.getDate() + 30);
     this.expiresAt = d;
   }
-  // Recompute status from signatories (don't override terminal states)
   if (this.signatories.length > 0 && !['void', 'expired', 'completed'].includes(this.status)) {
     const signedCount   = this.signatories.filter(s => s.status === 'signed').length;
     const declinedCount = this.signatories.filter(s => s.status === 'declined').length;
@@ -71,12 +70,11 @@ ESignRequestSchema.pre('save', function (next) {
       this.status = 'completed';
       if (!this.completedAt) this.completedAt = new Date();
     } else if (declinedCount > 0) {
-      this.status = 'void'; // any decline voids the request
+      this.status = 'void';
     } else {
       this.status = 'partially_signed';
     }
   }
-  next();
 });
 
 ESignRequestSchema.index({ firmId: 1, status: 1 });

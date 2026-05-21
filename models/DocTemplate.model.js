@@ -51,19 +51,17 @@ const DocTemplateSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Auto-extract / sync fields from content placeholders
-DocTemplateSchema.pre('save', function (next) {
+DocTemplateSchema.pre('save', async function () {
   if (this.isModified('content')) {
     const matches = (this.content || '').match(/\{\{(\w+)\}\}/g) || [];
     const names   = [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, '')))];
     const existing = new Map(this.fields.map(f => [f.name, f]));
-    // Keep existing field metadata, add new ones, remove obsolete
     this.fields = names.map(name => existing.get(name) || {
       name,
       label: name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
       type:  'text',
     });
   }
-  next();
 });
 
 DocTemplateSchema.index({ firmId: 1, category: 1 });
