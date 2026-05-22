@@ -26,6 +26,7 @@ const corsOrigin =
     : [
         (process.env.CLIENT_URL || '').replace(/\/$/, ''),
         'https://nayaya-frontend.netlify.app',
+        'https://nayaya-ai.netlify.app',
       ].filter(Boolean);
 
 const io = new Server(server, {
