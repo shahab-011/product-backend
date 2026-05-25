@@ -2,6 +2,8 @@ const express   = require('express');
 const rateLimit = require('express-rate-limit');
 const router    = express.Router();
 
+const { googleLogin, googleCallback } = require('../controllers/google.controller');
+
 const {
   register,
   verifyEmail,
@@ -44,6 +46,10 @@ const resendOTPLimiter = rateLimit({
   max: 3,
   message: { success: false, message: 'Too many OTP requests — wait 10 minutes' },
 });
+
+/* ─── Google OAuth ────────────────────────────────────────────── */
+router.get('/google',             googleLogin);
+router.get('/google/callback',    googleCallback);
 
 /* ─── Public routes ───────────────────────────────────────────── */
 router.post('/register',          register);

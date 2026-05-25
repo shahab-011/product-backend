@@ -52,6 +52,10 @@ const UserSchema = new mongoose.Schema(
     twoFactorEnabled: { type: Boolean, default: false },
     backupCodes:      { type: [String], select: false, default: [] },
 
+    // OAuth
+    googleId:     { type: String, sparse: true },
+    authProvider: { type: String, enum: ['local', 'google'], default: 'local' },
+
     // Account security
     failedLoginAttempts: { type: Number,  default: 0 },
     lockUntil:           { type: Date },

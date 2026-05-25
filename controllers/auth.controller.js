@@ -167,6 +167,11 @@ exports.login = async (req, res) => {
   // Same message for wrong email or password — prevents enumeration
   if (!user) return sendError(res, 'Invalid email or password', 401);
 
+  // Google-only account — no password set
+  if (user.authProvider === 'google') {
+    return sendError(res, 'This account uses Google Sign-In. Please click "Continue with Google" to log in.', 401);
+  }
+
   // Account locked?
   if (user.isAccountLocked()) {
     const remaining = Math.ceil((user.lockUntil - Date.now()) / 60000);
