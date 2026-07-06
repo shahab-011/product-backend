@@ -72,7 +72,6 @@ exports.register = async (req, res) => {
   // New registrations default to 'owner' role
   const safeRole = ['owner', 'lawyer', 'admin', 'user'].includes(role) ? role : 'owner';
 
-  const otp = generateOTP();
   const user = await User.create({
     name,
     email,
@@ -80,13 +79,16 @@ exports.register = async (req, res) => {
     role: safeRole,
     phone,
     barNumber,
-    isEmailVerified: false,
-    emailVerificationOTP: otp,
-    emailVerificationExpires: new Date(Date.now() + 10 * 60 * 1000),
+    isEmailVerified: true,
+    isVerified: true,
   });
 
   // firmId = own _id (owner of their firm)
   user.firmId = user._id;
+  user.lastLoginAt = new Date();
+  user.lastLogin   = new Date();
+
+  const refreshToken = user.generateRefreshToken(req.headers['user-agent'] || 'web');
   await user.save({ validateBeforeSave: false });
 
   // Auto-create FirmSettings
@@ -98,10 +100,14 @@ exports.register = async (req, res) => {
     onboardingComplete: false,
   });
 
-  // Send OTP
-  await sendOTPEmail(email, name, otp).catch(() => {});
+  const token = user.generateJWT();
+  setRefreshCookie(res, refreshToken);
 
-  return sendSuccess(res, { pendingEmail: email }, 'Account created — check your email for the verification code', 201);
+  return sendSuccess(res, {
+    token,
+    user: userPayload(user),
+    needsOnboarding: true,
+  }, 'Account created successfully', 201);
 };
 
 /* ─── VERIFY EMAIL ───────────────────────────────────────────── */
