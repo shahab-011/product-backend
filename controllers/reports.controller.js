@@ -69,8 +69,18 @@ exports.getFirmDashboard = async (req, res) => {
   const monthS   = monthStart();
   const userId   = req.user._id;
 
-  const [todayEntries, todayInvoices, todayTasks, upcomingEvents,
-         monthInvoices, monthMatters, myTasks, recentInvoices] = await Promise.all([
+  // Calculate start of current week (Monday)
+  const startOfWeek = new Date();
+  const day = startOfWeek.getDay();
+  const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+  startOfWeek.setDate(diff);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const [
+    todayEntries, todayInvoices, todayTasks, upcomingEvents,
+    monthInvoices, monthMatters, myTasks, recentInvoices,
+    weeklyEntries, activeMatters, outstandingInvoices
+  ] = await Promise.all([
     TimeEntry.find({ firmId, date: todayR, isDeleted: { $ne: true } }).lean(),
     Invoice.find({ firmId, issueDate: todayR }).lean(),
     Task.find({ firmId, dueDate: todayR, status: { $ne: 'completed' } }).lean(),
@@ -82,6 +92,9 @@ exports.getFirmDashboard = async (req, res) => {
       .sort({ dueDate: 1 }).limit(5).populate('matterId', 'title matterNumber').lean(),
     Invoice.find({ firmId }).sort({ createdAt: -1 }).limit(20)
       .populate('matterId', 'title').populate('clientId', 'firstName lastName').lean(),
+    TimeEntry.find({ firmId, date: { $gte: startOfWeek }, isDeleted: { $ne: true } }).lean(),
+    Matter.countDocuments({ firmId, status: 'active', isDeleted: { $ne: true } }),
+    Invoice.find({ firmId, status: { $in: ['sent', 'partially_paid', 'overdue'] }, isDeleted: { $ne: true } }).lean()
   ]);
 
   const todayHours   = +todayEntries.reduce((s, e) => s + e.hours, 0).toFixed(2);
@@ -90,11 +103,19 @@ exports.getFirmDashboard = async (req, res) => {
   const monthCollected = +(monthInvoices.filter(i => i.status === 'paid').reduce((s, i) => s + (i.amountPaid || i.total || 0), 0)).toFixed(2);
   const monthOutstanding = +(monthInvoices.filter(i => ['sent','overdue','partially_paid'].includes(i.status)).reduce((s, i) => s + (i.amountOutstanding || 0), 0)).toFixed(2);
 
+  const hoursThisWeek = +weeklyEntries.reduce((s, e) => s + e.hours, 0).toFixed(2);
+  const outstandingRevenue = +outstandingInvoices.reduce((s, i) => s + (i.amountOutstanding || i.amountDue || i.total || 0), 0).toFixed(2);
+  const tasksDueToday = todayTasks.length;
+
   sendSuccess(res, {
+    activeMatters,
+    tasksDueToday,
+    hoursThisWeek,
+    outstandingRevenue,
     today: {
       hoursLogged:    todayHours,
       revenueBilled:  todayBilled,
-      tasksDueToday:  todayTasks.length,
+      tasksDueToday,
       upcomingEvents: upcomingEvents.map(e => ({ title: e.title, startTime: e.startTime, type: e.eventType })),
     },
     month: {
